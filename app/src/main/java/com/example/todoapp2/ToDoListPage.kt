@@ -3,6 +3,7 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -29,56 +30,51 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     val todoList by viewModel.todoList.observeAsState()
     var inputText by remember { mutableStateOf("") }
     var selectedDeadline by remember { mutableStateOf<Date?>(null) }
-    var hasDeadline by remember { mutableStateOf(false) } // stan checkboxa
-    var isProject by remember { mutableStateOf(false) } // stan przełącznika dla projektu
+    var hasDeadline by remember { mutableStateOf(false) }
+    var isProject by remember { mutableStateOf(false) }
     val calendar = Calendar.getInstance()
+    var showModal by remember { mutableStateOf<Todo?>(null) } // Przechowuje projekt do wyświetlenia w modalnym oknie
 
     Column(
         modifier = Modifier
             .fillMaxHeight()
             .padding(8.dp)
     ) {
-        // Sekcja dodawania nowego zadania
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
             horizontalArrangement = Arrangement.Start
         ) {
-            // Pole do wpisywania zadania zajmujące 90% szerokości
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
                 placeholder = { Text("Dodaj zadanie...") },
                 modifier = Modifier
-                    .weight(0.9f) // Pole zajmuje 90% szerokości
-                    .padding(end = 8.dp) // Odstęp od przycisku
+                    .weight(0.9f)
+                    .padding(end = 8.dp)
             )
 
-            // Przyciski dodawania zadania zajmujące 10% szerokości
             IconButton(
                 onClick = {
                     if (inputText.isNotEmpty()) {
                         if (hasDeadline) {
-                            // Pokazuje dialog do wyboru daty
                             DatePickerDialog(
                                 context,
                                 { _, year, month, dayOfMonth ->
                                     calendar.set(Calendar.YEAR, year)
                                     calendar.set(Calendar.MONTH, month)
                                     calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                                    // Po wyborze daty pokazuje TimePicker
                                     TimePickerDialog(
                                         context,
                                         { _, hour, minute ->
                                             calendar.set(Calendar.HOUR_OF_DAY, hour)
                                             calendar.set(Calendar.MINUTE, minute)
                                             selectedDeadline = calendar.time
-                                            // Dodanie zadania po ustawieniu deadline
                                             viewModel.addTodo(inputText, selectedDeadline, isProject)
-                                            inputText = ""  // Czyszczenie pola tekstowego
-                                            selectedDeadline = null  // Resetowanie deadline
-                                            isProject = false // Resetowanie typu
+                                            inputText = ""
+                                            selectedDeadline = null
+                                            isProject = false
                                         },
                                         calendar.get(Calendar.HOUR_OF_DAY),
                                         calendar.get(Calendar.MINUTE),
@@ -90,18 +86,17 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                 calendar.get(Calendar.DAY_OF_MONTH)
                             ).show()
                         } else {
-                            // Dodanie zadania bez deadline
                             viewModel.addTodo(inputText, null, isProject)
-                            inputText = ""  // Czyszczenie pola tekstowego
-                            isProject = false // Resetowanie typu
+                            inputText = ""
+                            isProject = false
                         }
                     } else {
                         Toast.makeText(context, "Wpisz treść zadania", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier
-                    .weight(0.1f) // Przycisk zajmuje 10% szerokości
-                    .align(Alignment.CenterVertically) // Wyśrodkowanie przycisku
+                    .weight(0.1f)
+                    .align(Alignment.CenterVertically)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_add),
@@ -111,13 +106,11 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             }
         }
 
-        // Checkbox do wyboru deadline oraz Switch do wyboru typu zadania/projektu w jednej linii
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkbox do wyboru deadline
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "Deadline", fontSize = 12.sp)
                 Checkbox(
@@ -126,7 +119,6 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                 )
             }
 
-            // Switch do wyboru typu zadania/projektu
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "Zadanie", fontSize = 12.sp)
                 IconToggleButton(
@@ -135,9 +127,9 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_task), // Ikona zadania (inline)
+                        painter = painterResource(id = R.drawable.ic_task),
                         contentDescription = "Task",
-                        tint = if (!isProject) Color(0xFFBDE0FE) else Color.Gray // Kolor zadania
+                        tint = if (!isProject) Color(0xFFBDE0FE) else Color.Gray
                     )
                 }
 
@@ -148,20 +140,20 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_project), // Ikona projektu (outline)
+                        painter = painterResource(id = R.drawable.ic_project),
                         contentDescription = "Project",
-                        tint = if (isProject) Color(0xFFD5BDAD) else Color.Gray // Kolor projektu
+                        tint = if (isProject) Color(0xFFD5BDAD) else Color.Gray
                     )
                 }
             }
         }
 
-        // Lista zadań
         todoList?.let {
             LazyColumn(content = {
                 itemsIndexed(it) { _, item ->
                     TodoItem(
                         item = item,
+                        onClick = { if (item.isProject) showModal = item },
                         onDelete = { viewModel.deleteTodo(item.id) },
                         onMarkComplete = { viewModel.markAsCompleted(item.id) }
                     )
@@ -174,16 +166,19 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             fontSize = 16.sp
         )
     }
+
+    showModal?.let { project ->
+        ProjectModal(project = project, onDismiss = { showModal = null })
+    }
 }
 
-
 @Composable
-fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
-    // Zmieniamy kolor tła w zależności od typu zadania (projekt)
+fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
     val backgroundColor = when {
-        item.isProject -> Color(0xFFD5BDAD) // Kolor #d5bdaf dla Projektu
-        item.isCompleted -> Color(0xFF4CAF50) // Zielony dla wykonanego zadania
-        else -> Color(0xFFBDE0FE) // Kolor #bde0fe dla Zadania
+        item.isProject && item.isCompleted -> Color(0xFF2E7D32) // Ciemnozielony dla wykonanego projektu
+        item.isProject -> Color(0xFFD5BDAD)
+        item.isCompleted -> Color(0xFF4CAF50)
+        else -> Color(0xFFBDE0FE)
     }
 
     Row(
@@ -192,7 +187,8 @@ fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
-            .padding(16.dp),
+            .padding(16.dp)
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -206,7 +202,6 @@ fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
                 fontSize = 20.sp,
                 color = Color.White
             )
-            // Wyświetlenie terminu wykonania, jeśli istnieje
             item.deadline?.let {
                 Text(
                     text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}",
@@ -215,7 +210,6 @@ fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
                 )
             }
         }
-        // Przycisk oznaczenia jako wykonane (lub niewykonane)
         IconButton(onClick = onMarkComplete) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_check),
@@ -223,7 +217,6 @@ fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
                 tint = Color.White
             )
         }
-        // Przycisk usunięcia
         IconButton(onClick = onDelete) {
             Icon(
                 painter = painterResource(id = R.drawable.delete),
@@ -234,3 +227,25 @@ fun TodoItem(item: Todo, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
     }
 }
 
+@Composable
+fun ProjectModal(project: Todo, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = project.title, fontSize = 20.sp)
+        },
+        text = {
+            Column {
+                Text(text = "Szczegóły projektu:")
+                project.deadline?.let {
+                    Text(text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Zamknij")
+            }
+        }
+    )
+}

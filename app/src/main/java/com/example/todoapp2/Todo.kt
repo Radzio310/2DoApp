@@ -8,5 +8,8 @@ data class Todo(
     var createdAt: Date,
     var deadline: Date? = null,
     var isCompleted: Boolean = false,
-    var isProject: Boolean = false // Dodajemy pole do rozróżnienia zadania od projektu
+    var isProject: Boolean = false, // Pole rozróżniające zadania i projekty
+    var description: String? = null, // Opis projektu
+    var tasks: MutableList<Todo> = mutableListOf() // Lista zadań wewnątrz projektu
 )
+

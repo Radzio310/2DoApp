@@ -14,18 +14,29 @@ import com.example.todoapp2.ui.theme.ToDoApp2Theme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        TodoManager.init(this) // Inicjalizacja pamięci
+
+        // Inicjalizacja zarządzania danymi (np. lokalna baza danych lub inne źródło danych)
+        TodoManager.init(this)
+
+        // Pobranie ViewModelu dla Todo
         val todoViewModel = ViewModelProvider(this)[TodoViewModel::class.java]
+
+        // Ustawienie interfejsu użytkownika
         setContent {
             ToDoApp2Theme {
-// A surface container using the 'background' color from the theme
+                // Powierzchnia kontenera korzystająca z tła z motywu aplikacji
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    TodoListPage(todoViewModel, this)
+                    // Główna strona listy zadań
+                    TodoListPage(
+                        viewModel = todoViewModel,
+                        context = this
+                    )
                 }
             }
         }
     }
 }
+

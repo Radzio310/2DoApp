@@ -53,4 +53,14 @@ object TodoManager {
             todoList.addAll(savedList)
         }
     }
+    fun getProjectById(id: Int): Todo? {
+        return todoList.find { it.id == id && it.isProject }
+    }
+
+    fun addTaskToProject(projectId: Int, task: Todo) {
+        val project = getProjectById(projectId)
+        project?.tasks?.add(task)
+        saveTodos()
+    }
+
 }
