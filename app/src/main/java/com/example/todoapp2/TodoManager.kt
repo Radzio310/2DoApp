@@ -5,14 +5,17 @@ import android.content.SharedPreferences
 import com.google.gson.Gson
 import java.time.Instant
 import java.util.Date
+import java.util.UUID
 
 object TodoManager {
     private lateinit var preferences: SharedPreferences
     private val gson = Gson()
     private val todoList = mutableListOf<Todo>()
+    private var lastGeneratedId = 0;
 
     fun init(context: Context) {
         preferences = context.getSharedPreferences("todo_prefs", Context.MODE_PRIVATE)
+        loadLastGeneratedId() // Załaduj ID z pamięci
         loadTodos()
     }
 
@@ -80,14 +83,16 @@ object TodoManager {
         saveTodos()
     }
 
-    fun markTaskAsCompleted(projectId: Int, taskId: Int) {
+    fun markTaskAsCompleted(projectId: Int, taskId: Int, newCompletionState: Boolean) {
         val project = getProjectById(projectId)
         val task = project?.tasks?.find { it.id == taskId }
         task?.let {
-            it.isCompleted = !it.isCompleted
+            it.isCompleted = newCompletionState
             saveTodos()
+            saveProjectState(project) // Ensure the updated project state is saved
         }
     }
+
 
     fun updateProject(
         projectId: Int,
@@ -129,11 +134,25 @@ object TodoManager {
         } ?: throw IllegalArgumentException("Project with ID $projectId not found")
     }
 
-
-
-    public fun generateUniqueId(): Int {
-        return (todoList.maxOfOrNull { it.id } ?: 0) + 1
+    // Funkcja do generowania unikalnego ID dla zadania
+    fun generateUniqueId(): Int {
+        lastGeneratedId++ // Inkrementuje ID o 1
+        saveLastGeneratedId() // Zapisz nowe ID
+        return lastGeneratedId
     }
+
+    // Zapisanie lastGeneratedId do SharedPreferences
+    private fun saveLastGeneratedId() {
+        preferences.edit().putInt("lastGeneratedId", lastGeneratedId).apply()
+    }
+
+    // Załadowanie lastGeneratedId z SharedPreferences
+    private fun loadLastGeneratedId() {
+        lastGeneratedId = preferences.getInt("lastGeneratedId", 0) // Domyślnie 0, jeśli nie ma zapisanego ID
+    }
+
+
+
 
     private fun saveTodos() {
         val json = gson.toJson(todoList)

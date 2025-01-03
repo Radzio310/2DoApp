@@ -58,11 +58,6 @@ class TodoViewModel : ViewModel() {
         getAllTodo()
     }
 
-    fun markTaskAsCompleted(projectId: Int, taskId: Int) {
-        TodoManager.markTaskAsCompleted(projectId, taskId)
-        getAllTodo()
-    }
-
     fun saveProjectState(project: Todo) {
         TodoManager.saveProjectState(project)
         getAllTodo() // Odświeżenie listy po zapisaniu

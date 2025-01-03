@@ -388,9 +388,10 @@ fun ProjectDetailDialog(
                                 onCheckedChange = {
                                     val index = tasks.indexOf(task)
                                     if (index != -1) {
-                                        tasks[index] = task.copy(isCompleted = !task.isCompleted)
+                                        val updatedTask = task.copy(isCompleted = !task.isCompleted) // Tworzymy kopię z nowym stanem
+                                        tasks[index] = updatedTask // Zastępujemy zadanie kopią w liście
                                     }
-                                    TodoManager.markTaskAsCompleted(project.id, task.id)
+                                    TodoManager.markTaskAsCompleted(project.id, task.id, !task.isCompleted) // Zapisujemy zaktualizowany stan
                                 },
                                 colors = CheckboxDefaults.colors(
                                     checkmarkColor = if (task.isCompleted) Color.White else Color(0xFFD5BDAD)
