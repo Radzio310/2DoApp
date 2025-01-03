@@ -182,7 +182,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_task),
                         contentDescription = "Task",
-                        tint = if (!isProject) Color(0xFFBDE0FE) else Color.Gray
+                        tint = if (!isProject) Color(0xFFb08968) else Color.Gray
                     )
                 }
 
@@ -249,10 +249,36 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 @Composable
 fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
     val backgroundColor = when {
-        item.isProject && item.isCompleted -> Color(0xFF2E7D32) // Ciemnozielony dla wykonanego projektu
-        item.isProject -> Color(0xFFD5BDAD)
-        item.isCompleted -> Color(0xFF4CAF50)
-        else -> Color(0xFFBDE0FE)
+        item.isProject && item.isCompleted -> {
+            Color(0xFF74d3ae)
+        }
+        item.isProject -> {
+            // Dla projektu zachowujemy poprzednią logikę tła
+            Color(0xFFD5BDAD)
+        }
+        item.isCompleted -> {
+            // Dla wykonanych zadań tło jest wypełnione
+            Color(0xFF2b9348) // Zielony dla wykonanego zadania
+        }
+        else -> {
+            // Dla niewykonanych zadań tylko ramka, tło przezroczyste
+            Color.Transparent
+        }
+    }
+
+    val borderColor = when {
+        item.isProject -> {
+            // Dla projektu zachowujemy poprzednią logikę koloru ramki
+            Color(0xFFD5BDAD)
+        }
+        item.isCompleted -> {
+            // Ciemnozielony dla wykonanego zadania
+            Color(0xFF2b9348)
+        }
+        else -> {
+            // Kolor ramki dla niewykonanego zadania
+            Color(0xFFb08968)
+        }
     }
 
     Row(
@@ -260,16 +286,17 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor)
+            .background(backgroundColor) // Tło ustawione na przezroczyste lub pełne
+            .border(2.dp, borderColor, RoundedCornerShape(16.dp)) // Ramka o dynamicznym kolorze
             .padding(16.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick), // Akcja kliknięcia
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = SimpleDateFormat("HH:mm aa, dd/MM", Locale.ENGLISH).format(item.createdAt),
                 fontSize = 10.sp,
-                color = Color.LightGray
+                color = Color.Gray
             )
             Text(
                 text = item.title,
@@ -280,13 +307,13 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
                 Text(
                     text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}",
                     fontSize = 12.sp,
-                    color = Color.Yellow
+                    color = Color(0xFFf4f0bb)
                 )
             }
         }
         IconButton(onClick = onMarkComplete) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_check),
+                painter = painterResource(id = if (item.isCompleted) R.drawable.ic_uncheck else R.drawable.ic_check),
                 contentDescription = "Complete",
                 tint = Color.White
             )
@@ -300,6 +327,8 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
         }
     }
 }
+
+
 
 @Composable
 fun ProjectDetailDialog(
@@ -361,6 +390,10 @@ fun ProjectDetailDialog(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+
 
                 Spacer(modifier = Modifier.height(16.dp))
 
