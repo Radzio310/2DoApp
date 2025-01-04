@@ -2,6 +2,12 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +49,9 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     var isProject by remember { mutableStateOf(false) }
     val calendar = Calendar.getInstance()
     var showModal by remember { mutableStateOf<Todo?>(null) } // Przechowuje projekt do wyświetlenia w modalnym oknie
+    // Stan dla filtrowania
+    var showTasks by remember { mutableStateOf(true) } // Pokaż zadania domyślnie
+    var showProjects by remember { mutableStateOf(true) } // Pokaż projekty domyślnie
 
     Column(
         modifier = Modifier
@@ -203,21 +212,91 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
         todoList?.let {
             LazyColumn(content = {
-                itemsIndexed(it) { _, item ->
-                    TodoItem(
-                        item = item,
-                        onClick = { if (item.isProject) showModal = item },
-                        onDelete = { viewModel.deleteTodo(item.id) },
-                        onMarkComplete = { viewModel.markAsCompleted(item.id) }
-                    )
+                itemsIndexed(it.filter { item ->
+                    (showTasks && !item.isProject) || (showProjects && item.isProject)
+                }) { index, item ->
+                    AnimatedVisibility(
+                        visible = true, // Może być kontrolowane przez stan 'isCompleted'
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { 40 }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { -40 })
+                    ) {
+                        TodoItem(
+                            item = item,
+                            onClick = { if (item.isProject) showModal = item },
+                            onDelete = { viewModel.deleteTodo(item.id) },
+                            onMarkComplete = {
+                                viewModel.markAsCompleted(item.id)
+                            }
+                        )
+                    }
                 }
             })
-        } ?: Text(
+
+    } ?: Text(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             text = "Brak zadań - dodaj pierwsze",
             fontSize = 16.sp
         )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(0.dp)
+    ) {
+        // Inne elementy mogą być tutaj, np. lista zadań itp.
+
+        Spacer(modifier = Modifier.weight(1f)) // Wypełnia całą przestrzeń do dołu
+
+        // Dolny pasek z checkboxami
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(0.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Zagięte górne rogi
+                    .background(Color(0xFF090909)),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Zadania checkbox z marginesem
+                Row(
+                    modifier = Modifier.padding(start = 16.dp), // Dodaj margines od lewej
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Zadania", fontSize = 12.sp, color = Color.White)
+                    Checkbox(
+                        checked = showTasks,
+                        onCheckedChange = { showTasks = it }
+                    )
+                }
+
+                // Kalendarz w centrum
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_calendar), // Zmien na odpowiednią ikonę kalendarza
+                    contentDescription = "Calendar Icon",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(30.dp) // Możesz dostosować rozmiar
+                )
+
+                // Projekty checkbox z marginesem
+                Row(
+                    modifier = Modifier.padding(end = 16.dp), // Dodaj margines od prawej
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Projekty", fontSize = 12.sp, color = Color.White)
+                    Checkbox(
+                        checked = showProjects,
+                        onCheckedChange = { showProjects = it }
+                    )
+                }
+            }
+        }
     }
 
     showModal?.let { project ->
@@ -248,48 +327,33 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
 @Composable
 fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
-    val backgroundColor = when {
-        item.isProject && item.isCompleted -> {
-            Color(0xFF74d3ae)
-        }
-        item.isProject -> {
-            // Dla projektu zachowujemy poprzednią logikę tła
-            Color(0xFFD5BDAD)
-        }
-        item.isCompleted -> {
-            // Dla wykonanych zadań tło jest wypełnione
-            Color(0xFF2b9348) // Zielony dla wykonanego zadania
-        }
-        else -> {
-            // Dla niewykonanych zadań tylko ramka, tło przezroczyste
-            Color.Transparent
-        }
+    val targetBackgroundColor = when {
+        item.isProject && item.isCompleted -> Color(0xFF74d3ae)
+        item.isProject -> Color(0xFFD5BDAD)
+        item.isCompleted -> Color(0xFF2b9348) // Zielony dla wykonanego zadania
+        else -> Color.Transparent
     }
 
-    val borderColor = when {
-        item.isProject -> {
-            // Dla projektu zachowujemy poprzednią logikę koloru ramki
-            Color(0xFFD5BDAD)
-        }
-        item.isCompleted -> {
-            // Ciemnozielony dla wykonanego zadania
-            Color(0xFF2b9348)
-        }
-        else -> {
-            // Kolor ramki dla niewykonanego zadania
-            Color(0xFFb08968)
-        }
+    val backgroundColor by animateColorAsState(targetValue = targetBackgroundColor)
+
+    val targetBorderColor = when {
+        item.isProject && item.isCompleted -> Color(0xFF74d3ae)
+        item.isProject -> Color(0xFFD5BDAD)
+        item.isCompleted -> Color(0xFF2b9348)
+        else -> Color(0xFFb08968)
     }
+
+    val borderColor by animateColorAsState(targetValue = targetBorderColor)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor) // Tło ustawione na przezroczyste lub pełne
-            .border(2.dp, borderColor, RoundedCornerShape(16.dp)) // Ramka o dynamicznym kolorze
+            .background(backgroundColor)
+            .border(2.dp, borderColor, RoundedCornerShape(16.dp))
             .padding(16.dp)
-            .clickable(onClick = onClick), // Akcja kliknięcia
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -327,6 +391,7 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
         }
     }
 }
+
 
 
 

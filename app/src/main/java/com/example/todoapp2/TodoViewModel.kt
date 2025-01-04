@@ -62,4 +62,6 @@ class TodoViewModel : ViewModel() {
         TodoManager.saveProjectState(project)
         getAllTodo() // Odświeżenie listy po zapisaniu
     }
+
+    
 }

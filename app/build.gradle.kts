@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation("androidx.compose.runtime:runtime-livedata:1.6.6")
     implementation ("com.google.code.gson:gson:2.10.1")
+    implementation("androidx.compose.ui:ui:1.5.0")
     implementation(libs.firebase.crashlytics.buildtools)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
