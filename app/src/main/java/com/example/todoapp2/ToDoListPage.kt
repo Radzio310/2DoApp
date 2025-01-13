@@ -267,11 +267,14 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
         // Lista zadań
         todoList?.let {
-            val draggingItemId = remember { mutableStateOf<Int?>(null) } // ID przeciąganego zadania
 
+            // Filtrujemy listę w oparciu o checkboxy
+            val filteredList = todoList?.filter { todo ->
+                (showTasks && !todo.isProject) || (showProjects && todo.isProject)
+            }
             LazyColumn(
                 content = {
-                    itemsIndexed(todoList ?: emptyList()) { index, item ->
+                    itemsIndexed(filteredList ?: emptyList()) { index, item ->
                         TodoItem(
                             item = item,
                             onClick = {
