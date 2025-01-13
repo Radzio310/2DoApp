@@ -11,6 +11,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -53,7 +56,43 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     // Stan dla filtrowania
     var showTasks by remember { mutableStateOf(true) } // Pokaż zadania domyślnie
     var showProjects by remember { mutableStateOf(true) } // Pokaż projekty domyślnie
+
     var selectedTask by remember { mutableStateOf<Todo?>(null) }
+
+    val draggingItemId = remember { mutableStateOf<Int?>(null) }
+    val dragOffset = remember { mutableStateOf(0f) }
+    val draggingOffset = remember { mutableStateOf(0f) }
+
+    fun onDrag(itemId: Int, deltaY: Float) {
+        // Znajdź indeks aktualnie przeciąganego elementu
+        val currentIndex = todoList?.indexOfFirst { it.id == itemId } ?: return
+
+        // Wylicz docelowy indeks w zależności od kierunku przeciągania
+        val targetIndex = if (deltaY > 0) currentIndex + 1 else currentIndex - 1
+
+        // Pobierz element docelowy
+        val targetItem = todoList?.getOrNull(targetIndex)
+
+        if (targetItem != null) {
+            // Zamień kolejność elementów w ViewModel
+            viewModel.updateOrder(itemId, targetItem.order)
+            viewModel.updateOrder(targetItem.id, currentIndex)
+
+            // Zaktualizuj listę (LiveData)
+            viewModel.getAllTodo()
+        }
+    }
+
+    fun onDragEnd(itemId: Int) {
+        // Wyzerowanie stanu przeciągania
+        draggingItemId.value = null
+        dragOffset.value = 0f
+
+        // Finalne zapisanie zmian w ViewModel
+        viewModel.getAllTodo()
+    }
+
+
 
     Column(
         modifier = Modifier
@@ -228,35 +267,29 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
         // Lista zadań
         todoList?.let {
+            val draggingItemId = remember { mutableStateOf<Int?>(null) } // ID przeciąganego zadania
+
             LazyColumn(
                 content = {
-                    itemsIndexed(it.filter { item ->
-                        (showTasks && !item.isProject) || (showProjects && item.isProject)
-                    }) { index, item ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn() + slideInVertically(initialOffsetY = { 40 }),
-                            exit = fadeOut() + slideOutVertically(targetOffsetY = { -40 })
-                        ) {
-                            TodoItem(
-                                item = item,
-                                onClick = {
-                                    if (item.isProject) {
-                                        showModal = item
-                                    } else {
-                                        selectedTask = item
-                                    }
-                                },
-                                onDelete = { viewModel.deleteTodo(item.id) },
-                                onMarkComplete = {
-                                    viewModel.markAsCompleted(item.id)
-                                }
-                            )
-                        }
+                    itemsIndexed(todoList ?: emptyList()) { index, item ->
+                        TodoItem(
+                            item = item,
+                            onClick = {
+                                if (item.isProject) showModal = item else selectedTask = item
+                            },
+                            onDelete = { viewModel.deleteTodo(item.id) },
+                            onMarkComplete = { viewModel.markAsCompleted(item.id) },
+                            onMoveUp = { id -> viewModel.moveItemUp(id) },
+                            onMoveDown = { id -> viewModel.moveItemDown(id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        )
                     }
                 },
-                modifier = Modifier.padding(bottom = 40 .dp) // Margines na dole, by nie chowało się za paskiem
+                modifier = Modifier.padding(bottom = 40.dp)
             )
+
         } ?: Text(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
@@ -304,7 +337,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
                 // Kalendarz w centrum
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_calendar), // Zmien na odpowiednią ikonę kalendarza
+                    painter = painterResource(id = R.drawable.ic_calendar_view), // Zmien na odpowiednią ikonę kalendarza
                     contentDescription = "Calendar Icon",
                     tint = Color.Gray,
                     modifier = Modifier.size(30.dp) // Możesz dostosować rozmiar
@@ -363,11 +396,19 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
 
 @Composable
-fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComplete: () -> Unit) {
+fun TodoItem(
+    item: Todo,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onMarkComplete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onMoveUp: (Int) -> Unit, // Przesunięcie w górę
+    onMoveDown: (Int) -> Unit // Przesunięcie w dół
+) {
     val targetBackgroundColor = when {
         item.isProject && item.isCompleted -> Color(0xFF74d3ae)
         item.isProject -> Color(0xFFD5BDAD)
-        item.isCompleted -> Color(0xFF2b9348) // Zielony dla wykonanego zadania
+        item.isCompleted -> Color(0xFF2b9348)
         else -> Color.Transparent
     }
 
@@ -382,23 +423,48 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
 
     val borderColor by animateColorAsState(targetValue = targetBorderColor)
 
-    // Obliczenie postępu zadań w projekcie
-    val progress = if (item.isProject && item.tasks.isNotEmpty()) {
-        val completedTasks = item.tasks.count { it.isCompleted }
-        completedTasks.toFloat() / item.tasks.size
-    } else 0f
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
+            .clickable(onClick = onClick)
             .border(2.dp, borderColor, RoundedCornerShape(16.dp))
-            .padding(16.dp)
-            .clickable(onClick = onClick),
+            .padding(12.dp), // Zmniejszenie paddingu w wierszu
         verticalAlignment = Alignment.CenterVertically
     ) {
+        /*
+        // Kolumna ikon strzałek do przesuwania
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(end = 8.dp) // Zmniejszenie odstępu między strzałkami a resztą elementów
+                .width(24.dp) // Ustawienie szerokości kolumny
+        ) {
+            IconButton(
+                onClick = { onMoveUp(item.id) },
+                modifier = Modifier.size(20.dp) // Zmniejszenie rozmiaru przycisku
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_up),
+                    contentDescription = "Move Up",
+                    tint = Color.Gray
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            IconButton(
+                onClick = { onMoveDown(item.id) },
+                modifier = Modifier.size(20.dp) // Zmniejszenie rozmiaru przycisku
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_down),
+                    contentDescription = "Move Down",
+                    tint = Color.Gray
+                )
+            }
+        }*/
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = SimpleDateFormat("HH:mm aa, dd/MM", Locale.ENGLISH).format(item.createdAt),
@@ -422,10 +488,13 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
             if (item.isProject) {
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
-                    progress = progress,
+                    progress = if (item.tasks.isNotEmpty()) {
+                        val completedTasks = item.tasks.count { it.isCompleted }
+                        completedTasks.toFloat() / item.tasks.size
+                    } else 0f,
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF2b9348), // Kolor paska
-                    trackColor = Color(0xFFb08968) // Kolor tła paska
+                    color = Color(0xFF2b9348),
+                    trackColor = Color(0xFFb08968)
                 )
             }
         }
@@ -445,6 +514,7 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
         }
     }
 }
+
 
 
 @Composable
@@ -633,7 +703,7 @@ fun ProjectDetailDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Wybór deadline’u
                 Row(
@@ -698,12 +768,12 @@ fun ProjectDetailDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Wyświetlanie zadań w projekcie
                 Text(text = "Zadania:", fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
                 LazyColumn(
-                    modifier = Modifier.fillMaxHeight(0.6f),
+                    modifier = Modifier.fillMaxHeight(0.5f),
                 ) {
                     items(tasks) { task ->
                         Row(
@@ -749,6 +819,53 @@ fun ProjectDetailDialog(
                                 )
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                var newTaskTitle by remember { mutableStateOf("") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newTaskTitle,
+                        onValueChange = { newTaskTitle = it },
+                        placeholder = { Text("Dodaj zadanie") },
+                        modifier = Modifier.weight(1f),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (newTaskTitle.isNotEmpty()) {
+                                    // Tworzymy nowe zadanie
+                                    val newTask = Todo(
+                                        title = newTaskTitle,
+                                        createdAt = Date(),
+                                        id = generateUniqueId()
+                                    )
+                                    // Dodajemy zadanie do listy zadań projektu
+                                    tasks.add(newTask)
+                                    newTaskTitle = "" // Czyścimy pole tekstowe po dodaniu zadania
+                                }
+                            }
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            imeAction = ImeAction.Done // Ustawienie akcji "Done" (Enter)
+                        )
+                    )
+
+                    IconButton(onClick = {
+                        if (newTaskTitle.isNotEmpty()) {
+                            val newTask = Todo(
+                                title = newTaskTitle,
+                                createdAt = Date(),
+                                id = generateUniqueId()
+                            )
+                            tasks.add(newTask)
+                            newTaskTitle = ""
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_add),
+                            contentDescription = "Dodaj zadanie"
+                        )
                     }
                 }
 

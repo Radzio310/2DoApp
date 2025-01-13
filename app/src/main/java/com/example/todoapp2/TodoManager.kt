@@ -31,28 +31,82 @@ object TodoManager {
         }
     }
 
-    fun updateTaskOrder(projectId: Int, taskId: Int, newOrder: Int) {
-        val project = getProjectById(projectId)
-        val task = project?.tasks?.find { it.id == taskId }
-        task?.let {
-            it.order = newOrder
+    fun moveUp(id: Int) {
+        val index = todoList.indexOfFirst { it.id == id }
+        if (index > 0) {
+            val currentItem = todoList[index]
+            val previousItem = todoList[index - 1]
+
+            // Swap `order` values
+            val tempOrder = currentItem.order
+            currentItem.order = previousItem.order
+            previousItem.order = tempOrder
+
+            // Sort by `order` and save
+            todoList.sortBy { it.order }
+            saveTodos()
+        }
+    }
+
+    fun moveDown(id: Int) {
+        val index = todoList.indexOfFirst { it.id == id }
+        if (index < todoList.size - 1) {
+            val currentItem = todoList[index]
+            val nextItem = todoList[index + 1]
+
+            // Swap `order` values
+            val tempOrder = currentItem.order
+            currentItem.order = nextItem.order
+            nextItem.order = tempOrder
+
+            // Sort by `order` and save
+            todoList.sortBy { it.order }
+            saveTodos()
+        }
+    }
+
+    fun getSortedTodoList(): List<Todo> {
+        // Podział na niewykonane i wykonane zadania
+        val uncompleted = todoList.filter { !it.isCompleted }.sortedBy { it.order }
+        val completed = todoList.filter { it.isCompleted }.sortedBy { it.order }
+        return uncompleted + completed
+    }
+
+
+    fun updateTodoOrder(draggedId: Int, targetId: Int) {
+        val draggedTodo = todoList.find { it.id == draggedId }
+        val targetTodo = todoList.find { it.id == targetId }
+        if (draggedTodo != null && targetTodo != null) {
+            val draggedOrder = draggedTodo.order
+            draggedTodo.order = targetTodo.order
+            targetTodo.order = draggedOrder
+            todoList.sortBy { it.order }
             saveTodos()
         }
     }
 
 
+
     fun addTodo(title: String, deadline: Date? = null, isProject: Boolean = false) {
-        todoList.add(
-            Todo(
-                id = generateUniqueId(),
-                title = title,
-                createdAt = Date.from(Instant.now()),
-                deadline = deadline,
-                isProject = isProject
-            )
+        // Znajdź największy istniejący `order`, jeśli lista nie jest pusta
+        val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
+
+        // Dodaj nowe zadanie z `order = maxOrder + 1`
+        val newTodo = Todo(
+            id = generateUniqueId(),
+            title = title,
+            createdAt = Date.from(Instant.now()),
+            deadline = deadline,
+            isProject = isProject,
+            order = maxOrder + 1
         )
+        todoList.add(newTodo)
+
         saveTodos()
     }
+
+
+
 
     fun deleteTodo(id: Int) {
         todoList.removeIf { it.id == id }

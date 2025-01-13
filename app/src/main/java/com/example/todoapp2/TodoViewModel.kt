@@ -14,7 +14,7 @@ class TodoViewModel : ViewModel() {
     }
 
     fun getAllTodo() {
-        _todoList.value = TodoManager.getAllTodo().reversed() // Przypisanie nowej listy do LiveData
+        _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
     }
 
     fun addTodo(title: String, deadline: Date?, isProject: Boolean) {
@@ -68,10 +68,17 @@ class TodoViewModel : ViewModel() {
         getAllTodo()
     }
 
-    fun updateTaskOrder(projectId: Int, taskId: Int, newOrder: Int) {
-        TodoManager.updateTaskOrder(projectId, taskId, newOrder)
+    fun moveItemUp(id: Int) {
+        TodoManager.moveUp(id)
         getAllTodo()
     }
+
+    fun moveItemDown(id: Int) {
+        TodoManager.moveDown(id)
+        getAllTodo()
+    }
+
+
 
     fun updateTodo(updatedTodo: Todo) {
         val todo = TodoManager.getAllTodo().find { it.id == updatedTodo.id }
