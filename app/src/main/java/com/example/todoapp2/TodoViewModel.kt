@@ -69,14 +69,26 @@ class TodoViewModel : ViewModel() {
     }
 
     fun moveItemUp(id: Int) {
-        TodoManager.moveUp(id)
-        getAllTodo()
+        if (TodoManager.canMoveUp(id)) {
+            val index = TodoManager.getAllTodo().indexOfFirst { it.id == id }
+            val belowId = TodoManager.getAllTodo()[index + 1].id // W górę = niższy indeks w odwróconej liście
+            TodoManager.swapOrder(id, belowId)
+            getAllTodo()
+        }
     }
 
     fun moveItemDown(id: Int) {
-        TodoManager.moveDown(id)
-        getAllTodo()
+        if (TodoManager.canMoveDown(id)) {
+            val index = TodoManager.getAllTodo().indexOfFirst { it.id == id }
+            val aboveId = TodoManager.getAllTodo()[index - 1].id // W dół = wyższy indeks w odwróconej liście
+            TodoManager.swapOrder(id, aboveId)
+            getAllTodo()
+        }
     }
+
+
+
+
 
 
 

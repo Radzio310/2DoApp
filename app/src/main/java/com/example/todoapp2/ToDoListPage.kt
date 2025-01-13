@@ -275,19 +275,25 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             LazyColumn(
                 content = {
                     itemsIndexed(filteredList ?: emptyList()) { index, item ->
-                        TodoItem(
-                            item = item,
-                            onClick = {
-                                if (item.isProject) showModal = item else selectedTask = item
-                            },
-                            onDelete = { viewModel.deleteTodo(item.id) },
-                            onMarkComplete = { viewModel.markAsCompleted(item.id) },
-                            onMoveUp = { id -> viewModel.moveItemUp(id) },
-                            onMoveDown = { id -> viewModel.moveItemDown(id) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        )
+                        AnimatedVisibility(
+                            visible = true, // Elementy zawsze widoczne na liście
+                            enter = slideInVertically(initialOffsetY = { it }),
+                            exit = slideOutVertically(targetOffsetY = { it })
+                        ) {
+                            TodoItem(
+                                item = item,
+                                onClick = {
+                                    if (item.isProject) showModal = item else selectedTask = item
+                                },
+                                onDelete = { viewModel.deleteTodo(item.id) },
+                                onMarkComplete = { viewModel.markAsCompleted(item.id) },
+                                onMoveUp = { id -> viewModel.moveItemUp(id) },
+                                onMoveDown = { id -> viewModel.moveItemDown(id) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.padding(bottom = 40.dp)
@@ -437,36 +443,38 @@ fun TodoItem(
             .padding(12.dp), // Zmniejszenie paddingu w wierszu
         verticalAlignment = Alignment.CenterVertically
     ) {
-        /*
         // Kolumna ikon strzałek do przesuwania
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .padding(end = 8.dp) // Zmniejszenie odstępu między strzałkami a resztą elementów
-                .width(24.dp) // Ustawienie szerokości kolumny
+                .padding(end = 8.dp)
+                .width(24.dp)
         ) {
             IconButton(
                 onClick = { onMoveUp(item.id) },
-                modifier = Modifier.size(20.dp) // Zmniejszenie rozmiaru przycisku
+                enabled = TodoManager.canMoveUp(item.id), // W górę to "niższy" element w odwróconej kolejności
+                modifier = Modifier.size(20.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_up),
                     contentDescription = "Move Up",
-                    tint = Color.Gray
+                    tint = if (TodoManager.canMoveUp(item.id)) Color.LightGray else Color.Gray
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
             IconButton(
                 onClick = { onMoveDown(item.id) },
-                modifier = Modifier.size(20.dp) // Zmniejszenie rozmiaru przycisku
+                enabled = TodoManager.canMoveDown(item.id), // W dół to "wyższy" element w odwróconej kolejności
+                modifier = Modifier.size(20.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_down),
                     contentDescription = "Move Down",
-                    tint = Color.Gray
+                    tint = if (TodoManager.canMoveDown(item.id)) Color.LightGray else Color.Gray
                 )
             }
-        }*/
+        }
+
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -17,6 +17,7 @@ object TodoManager {
         preferences = context.getSharedPreferences("todo_prefs", Context.MODE_PRIVATE)
         loadLastGeneratedId() // Załaduj ID z pamięci
         loadTodos()
+        fixDuplicateOrders()
     }
 
     fun getAllTodo(): List<Todo> {
@@ -31,61 +32,67 @@ object TodoManager {
         }
     }
 
-    fun moveUp(id: Int) {
-        val index = todoList.indexOfFirst { it.id == id }
-        if (index > 0) {
-            val currentItem = todoList[index]
-            val previousItem = todoList[index - 1]
+    fun swapOrder(firstId: Int, secondId: Int) {
+        val firstTodo = todoList.find { it.id == firstId }
+        val secondTodo = todoList.find { it.id == secondId }
 
-            // Swap `order` values
-            val tempOrder = currentItem.order
-            currentItem.order = previousItem.order
-            previousItem.order = tempOrder
+        if (firstTodo != null && secondTodo != null) {
+            val tempOrder = firstTodo.order
+            firstTodo.order = secondTodo.order
+            secondTodo.order = tempOrder
 
-            // Sort by `order` and save
             todoList.sortBy { it.order }
             saveTodos()
         }
     }
 
-    fun moveDown(id: Int) {
-        val index = todoList.indexOfFirst { it.id == id }
-        if (index < todoList.size - 1) {
-            val currentItem = todoList[index]
-            val nextItem = todoList[index + 1]
+    fun canMoveDown(id: Int): Boolean {
+        val todoListSorted = getAllTodo() // Upewnij się, że lista jest posortowana
+        val currentIndex = todoListSorted.indexOfFirst { it.id == id }
 
-            // Swap `order` values
-            val tempOrder = currentItem.order
-            currentItem.order = nextItem.order
-            nextItem.order = tempOrder
+        // Jeśli zadanie jest pierwsze w swojej grupie, nie można go przesunąć w górę
+        if (currentIndex <= 0) return false
 
-            // Sort by `order` and save
-            todoList.sortBy { it.order }
-            saveTodos()
+        val currentItem = todoListSorted[currentIndex]
+        val aboveItem = todoListSorted[currentIndex - 1]
+
+        // Można przesunąć w górę tylko w obrębie tej samej grupy (wykonane/niewykonane)
+        return currentItem.isCompleted == aboveItem.isCompleted
+    }
+
+    fun canMoveUp(id: Int): Boolean {
+        val todoListSorted = getAllTodo() // Upewnij się, że lista jest posortowana
+        val currentIndex = todoListSorted.indexOfFirst { it.id == id }
+
+        // Jeśli zadanie jest ostatnie w swojej grupie, nie można go przesunąć w dół
+        if (currentIndex >= todoListSorted.size - 1) return false
+
+        val currentItem = todoListSorted[currentIndex]
+        val belowItem = todoListSorted[currentIndex + 1]
+
+        // Można przesunąć w dół tylko w obrębie tej samej grupy (wykonane/niewykonane)
+        return currentItem.isCompleted == belowItem.isCompleted
+    }
+
+
+    fun fixDuplicateOrders() {
+        val seenOrders = mutableSetOf<Int>() // Zestaw przechowujący unikalne wartości order
+        var maxOrder = todoList.maxOfOrNull { it.order } ?: 0 // Znajdź maksymalne order w liście
+
+        todoList.forEach { todo ->
+            if (!seenOrders.add(todo.order)) {
+                // Jeśli order się powtarza, przypisz nową unikalną wartość
+                maxOrder += 1
+                todo.order = maxOrder
+            }
         }
+
+        // Posortuj listę według order
+        todoList.sortBy { it.order }
+
+        // Zapisz zmienioną listę
+        saveTodos()
     }
-
-    fun getSortedTodoList(): List<Todo> {
-        // Podział na niewykonane i wykonane zadania
-        val uncompleted = todoList.filter { !it.isCompleted }.sortedBy { it.order }
-        val completed = todoList.filter { it.isCompleted }.sortedBy { it.order }
-        return uncompleted + completed
-    }
-
-
-    fun updateTodoOrder(draggedId: Int, targetId: Int) {
-        val draggedTodo = todoList.find { it.id == draggedId }
-        val targetTodo = todoList.find { it.id == targetId }
-        if (draggedTodo != null && targetTodo != null) {
-            val draggedOrder = draggedTodo.order
-            draggedTodo.order = targetTodo.order
-            targetTodo.order = draggedOrder
-            todoList.sortBy { it.order }
-            saveTodos()
-        }
-    }
-
-
 
     fun addTodo(title: String, deadline: Date? = null, isProject: Boolean = false) {
         // Znajdź największy istniejący `order`, jeśli lista nie jest pusta
