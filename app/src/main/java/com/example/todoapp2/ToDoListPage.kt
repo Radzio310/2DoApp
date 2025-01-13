@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -52,6 +53,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     // Stan dla filtrowania
     var showTasks by remember { mutableStateOf(true) } // Pokaż zadania domyślnie
     var showProjects by remember { mutableStateOf(true) } // Pokaż projekty domyślnie
+    var selectedTask by remember { mutableStateOf<Todo?>(null) }
 
     Column(
         modifier = Modifier
@@ -210,35 +212,59 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             }
         }
 
-        todoList?.let {
-            LazyColumn(content = {
-                itemsIndexed(it.filter { item ->
-                    (showTasks && !item.isProject) || (showProjects && item.isProject)
-                }) { index, item ->
-                    AnimatedVisibility(
-                        visible = true, // Może być kontrolowane przez stan 'isCompleted'
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { 40 }),
-                        exit = fadeOut() + slideOutVertically(targetOffsetY = { -40 })
-                    ) {
-                        TodoItem(
-                            item = item,
-                            onClick = { if (item.isProject) showModal = item },
-                            onDelete = { viewModel.deleteTodo(item.id) },
-                            onMarkComplete = {
-                                viewModel.markAsCompleted(item.id)
-                            }
-                        )
-                    }
-                }
-            })
+        // Dodanie linii oddzielającej
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Divider(
+                modifier = Modifier
+                    .height(2.dp),
+                color = Color.Gray
+            )
+        }
 
-    } ?: Text(
+        // Lista zadań
+        todoList?.let {
+            LazyColumn(
+                content = {
+                    itemsIndexed(it.filter { item ->
+                        (showTasks && !item.isProject) || (showProjects && item.isProject)
+                    }) { index, item ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn() + slideInVertically(initialOffsetY = { 40 }),
+                            exit = fadeOut() + slideOutVertically(targetOffsetY = { -40 })
+                        ) {
+                            TodoItem(
+                                item = item,
+                                onClick = {
+                                    if (item.isProject) {
+                                        showModal = item
+                                    } else {
+                                        selectedTask = item
+                                    }
+                                },
+                                onDelete = { viewModel.deleteTodo(item.id) },
+                                onMarkComplete = {
+                                    viewModel.markAsCompleted(item.id)
+                                }
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.padding(bottom = 40 .dp) // Margines na dole, by nie chowało się za paskiem
+            )
+        } ?: Text(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             text = "Brak zadań - dodaj pierwsze",
             fontSize = 16.sp
         )
     }
+
 
     Column(
         modifier = Modifier
@@ -322,6 +348,17 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             }
         )
     }
+    selectedTask?.let { task ->
+        TaskDetailDialog(
+            task = task,
+            onClose = { selectedTask = null },
+            onSave = { updatedTask ->
+                viewModel.updateTodo(updatedTask) // Zapisz zmiany w ViewModel
+                selectedTask = null // Zamknij modalne okno
+            }
+        )
+    }
+
 }
 
 
@@ -344,6 +381,12 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
     }
 
     val borderColor by animateColorAsState(targetValue = targetBorderColor)
+
+    // Obliczenie postępu zadań w projekcie
+    val progress = if (item.isProject && item.tasks.isNotEmpty()) {
+        val completedTasks = item.tasks.count { it.isCompleted }
+        completedTasks.toFloat() / item.tasks.size
+    } else 0f
 
     Row(
         modifier = Modifier
@@ -374,6 +417,17 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
                     color = Color(0xFFf4f0bb)
                 )
             }
+
+            // Pasek postępu dla projektów
+            if (item.isProject) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF2b9348), // Kolor paska
+                    trackColor = Color(0xFFb08968) // Kolor tła paska
+                )
+            }
         }
         IconButton(onClick = onMarkComplete) {
             Icon(
@@ -393,6 +447,126 @@ fun TodoItem(item: Todo, onClick: () -> Unit, onDelete: () -> Unit, onMarkComple
 }
 
 
+@Composable
+fun TaskDetailDialog(
+    task: Todo,
+    onClose: () -> Unit,
+    onSave: (Todo) -> Unit
+) {
+    var title by remember { mutableStateOf(task.title) }
+    var deadline by remember { mutableStateOf(task.deadline) }
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    Dialog(onDismissRequest = {
+        onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
+        onClose() // Zamknij dialog
+    }) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Edycja tytułu zadania
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Tytuł zadania") }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Wyświetlanie i edycja deadline’u
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Jeśli deadline jest ustawiony, wyświetl go
+                    if (deadline != null) {
+                        Text(
+                            text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            modifier = Modifier.weight(1f),
+                            color = Color.Gray
+                        )
+                    } else {
+                        Text(
+                            text = "Brak deadline’u",
+                            modifier = Modifier.weight(1f),
+                            color = Color.LightGray
+                        )
+                    }
+
+                    // Ikona do wyboru deadline’u
+                    IconButton(onClick = {
+                        // Wybór daty
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(Calendar.YEAR, year)
+                                calendar.set(Calendar.MONTH, month)
+                                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+                                // Po wyborze daty pokaż TimePickerDialog
+                                TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                        calendar.set(Calendar.MINUTE, minute)
+                                        deadline = calendar.time // Zaktualizuj deadline
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    true
+                                ).show()
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }) {
+                        Icon(painterResource(id = R.drawable.ic_calendar), contentDescription = "Dodaj deadline")
+                    }
+
+                    // Ikona do usuwania deadline’u
+                    IconButton(onClick = {
+                        deadline = null // Usuń deadline
+                    }) {
+                        Icon(
+                            painterResource(id = R.drawable.ic_clear_calendar), // Dodaj odpowiednią ikonę
+                            contentDescription = "Usuń deadline"
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    // Przycisk zapisu
+                    Button(
+                        onClick = {
+                            onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
+                            Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
+                            onClose()
+                        },
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Text("Zapisz i zamknij")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 
 @Composable
@@ -405,14 +579,16 @@ fun ProjectDetailDialog(
     var description by remember { mutableStateOf(project.description ?: "") }
     var isEditingDescription by remember { mutableStateOf(false) }
     var deadline by remember { mutableStateOf(project.deadline) }
-    val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks ?: emptyList()) } }
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
 
+    val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks ?: emptyList()) } }
     val completedTasks = tasks.count { it.isCompleted }
     val progress = if (tasks.isNotEmpty()) (completedTasks.toFloat() / tasks.size.toFloat()) * 100 else 0f
 
     Dialog(onDismissRequest = {
-        // Akcja wykonywana przy zamknięciu dialogu
         project.description = description
+        project.deadline = deadline
         project.tasks = tasks.toList().toMutableList()
         saveProjectState(project) // Zapisz projekt
         onClose() // Wywołanie zamknięcia
@@ -434,6 +610,7 @@ fun ProjectDetailDialog(
                         .padding(bottom = 16.dp)
                 )
 
+                // Opis projektu
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -456,12 +633,74 @@ fun ProjectDetailDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // Wybór deadline’u
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (deadline != null) {
+                        Text(
+                            text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            modifier = Modifier.weight(1f),
+                            color = Color.Gray
+                        )
+                    } else {
+                        Text(
+                            text = "Brak deadline’u",
+                            modifier = Modifier.weight(1f),
+                            color = Color.LightGray
+                        )
+                    }
 
+                    IconButton(onClick = {
+                        // Wybór daty
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(Calendar.YEAR, year)
+                                calendar.set(Calendar.MONTH, month)
+                                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+                                // Wybór godziny
+                                TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                        calendar.set(Calendar.MINUTE, minute)
+                                        deadline = calendar.time // Zaktualizuj deadline
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    true
+                                ).show()
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }) {
+                        Icon(painterResource(id = R.drawable.ic_calendar), contentDescription = "Dodaj deadline")
+                    }
+
+                    // Usunięcie deadline’u
+                    IconButton(onClick = {
+                        deadline = null // Usuń deadline
+                    }) {
+                        Icon(
+                            painterResource(id = R.drawable.ic_clear_calendar), // Dodaj odpowiednią ikonę
+                            contentDescription = "Usuń deadline"
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Wyświetlanie zadań w projekcie
                 Text(text = "Zadania:", fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
                 LazyColumn(
                     modifier = Modifier.fillMaxHeight(0.6f),
@@ -486,10 +725,10 @@ fun ProjectDetailDialog(
                                 onCheckedChange = {
                                     val index = tasks.indexOf(task)
                                     if (index != -1) {
-                                        val updatedTask = task.copy(isCompleted = !task.isCompleted) // Tworzymy kopię z nowym stanem
-                                        tasks[index] = updatedTask // Zastępujemy zadanie kopią w liście
+                                        val updatedTask = task.copy(isCompleted = !task.isCompleted)
+                                        tasks[index] = updatedTask
                                     }
-                                    TodoManager.markTaskAsCompleted(project.id, task.id, !task.isCompleted) // Zapisujemy zaktualizowany stan
+                                    TodoManager.markTaskAsCompleted(project.id, task.id, !task.isCompleted)
                                 },
                                 colors = CheckboxDefaults.colors(
                                     checkmarkColor = if (task.isCompleted) Color.White else Color(0xFFD5BDAD)
@@ -515,53 +754,6 @@ fun ProjectDetailDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                var newTaskTitle by remember { mutableStateOf("") }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = newTaskTitle,
-                        onValueChange = { newTaskTitle = it },
-                        placeholder = { Text("Dodaj zadanie") },
-                        modifier = Modifier.weight(1f),
-                                keyboardActions = KeyboardActions(
-                                onDone = {
-                                    if (newTaskTitle.isNotEmpty()) {
-                                        // Tworzymy nowe zadanie
-                                        val newTask = Todo(
-                                            title = newTaskTitle,
-                                            createdAt = Date(),
-                                            id = generateUniqueId()
-                                        )
-                                        // Dodajemy zadanie do listy zadań projektu
-                                        tasks.add(newTask)
-                                        newTaskTitle = "" // Czyścimy pole tekstowe po dodaniu zadania
-                                    }
-                                }
-                                ),
-                        keyboardOptions = KeyboardOptions.Default.copy(
-                            imeAction = ImeAction.Done // Ustawienie akcji "Done" (Enter)
-                        )
-                    )
-
-                    IconButton(onClick = {
-                        if (newTaskTitle.isNotEmpty()) {
-                            val newTask = Todo(
-                                title = newTaskTitle,
-                                createdAt = Date(),
-                                id = generateUniqueId()
-                            )
-                            tasks.add(newTask)
-                            newTaskTitle = ""
-                        }
-                    }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_add),
-                            contentDescription = "Dodaj zadanie"
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Text(text = "Postęp: $completedTasks / ${tasks.size}", fontSize = 16.sp)
                 LinearProgressIndicator(progress = progress / 100f)
 
@@ -575,9 +767,10 @@ fun ProjectDetailDialog(
                 ) {
                     Button(onClick = {
                         project.description = description
+                        project.deadline = deadline
                         project.tasks = tasks.toList().toMutableList()
-                        saveProjectState(project) // Zapisanie stanu projektu
-                        onClose() // Zamknięcie dialogu
+                        saveProjectState(project) // Zapisz stan projektu
+                        onClose() // Zamknij dialog
                     }) {
                         Text("Zapisz i zamknij")
                     }
@@ -586,4 +779,5 @@ fun ProjectDetailDialog(
         }
     }
 }
+
 

@@ -20,8 +20,26 @@ object TodoManager {
     }
 
     fun getAllTodo(): List<Todo> {
-        return todoList.sortedByDescending { it.isCompleted }
+        return todoList.sortedWith(compareBy<Todo> { !it.isCompleted }.thenBy { it.order })
     }
+
+    fun updateOrder(id: Int, newOrder: Int) {
+        val todo = todoList.find { it.id == id }
+        todo?.let {
+            it.order = newOrder
+            saveTodos()
+        }
+    }
+
+    fun updateTaskOrder(projectId: Int, taskId: Int, newOrder: Int) {
+        val project = getProjectById(projectId)
+        val task = project?.tasks?.find { it.id == taskId }
+        task?.let {
+            it.order = newOrder
+            saveTodos()
+        }
+    }
+
 
     fun addTodo(title: String, deadline: Date? = null, isProject: Boolean = false) {
         todoList.add(

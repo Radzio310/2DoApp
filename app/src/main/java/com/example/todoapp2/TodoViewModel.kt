@@ -63,5 +63,26 @@ class TodoViewModel : ViewModel() {
         getAllTodo() // Odświeżenie listy po zapisaniu
     }
 
-    
+    fun updateOrder(id: Int, newOrder: Int) {
+        TodoManager.updateOrder(id, newOrder)
+        getAllTodo()
+    }
+
+    fun updateTaskOrder(projectId: Int, taskId: Int, newOrder: Int) {
+        TodoManager.updateTaskOrder(projectId, taskId, newOrder)
+        getAllTodo()
+    }
+
+    fun updateTodo(updatedTodo: Todo) {
+        val todo = TodoManager.getAllTodo().find { it.id == updatedTodo.id }
+        todo?.let {
+            it.title = updatedTodo.title
+            it.deadline = updatedTodo.deadline
+            TodoManager.saveProjectState(it)
+            getAllTodo() // Odświeżenie listy
+        }
+    }
+
+
+
 }

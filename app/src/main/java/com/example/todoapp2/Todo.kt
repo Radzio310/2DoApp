@@ -10,6 +10,7 @@ data class Todo(
     var isCompleted: Boolean = false,
     var isProject: Boolean = false, // Pole rozróżniające zadania i projekty
     var description: String? = null, // Opis projektu
-    var tasks: MutableList<Todo> = mutableListOf() // Lista zadań wewnątrz projektu
+    var tasks: MutableList<Todo> = mutableListOf(), // Lista zadań wewnątrz projektu
+    var order: Int = 0 // kolejność zadań
 )
 
