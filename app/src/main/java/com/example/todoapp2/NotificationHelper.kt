@@ -19,7 +19,7 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, "task_reminders")
-            .setSmallIcon(R.mipmap.ic_launcher_foreground) // Zmień na ikonę aplikacji
+            .setSmallIcon(R.mipmap.ic_launcher) // Zmień na ikonę aplikacji
             .setContentTitle(title)
             .setContentText(message)
             .setContentIntent(pendingIntent)
@@ -43,7 +43,7 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, "daily_summary")
-            .setSmallIcon(R.mipmap.ic_launcher_foreground) // Zmień na ikonę aplikacji
+            .setSmallIcon(R.mipmap.ic_launcher) // Zmień na ikonę aplikacji
             .setContentTitle("Dzień dobry, cześć!")
             .setContentText("Masz dzisiaj $taskCount zadań i $projectCount projektów do wykonania. Lecimy z tematem! 💪")
             .setContentIntent(pendingIntent)

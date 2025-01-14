@@ -97,11 +97,13 @@ object TodoManager {
         saveTodos()
     }
 
-    fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
-        // Znajdź największy istniejący `order`, jeśli lista nie jest pusta
-        val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
+    fun cancelTaskReminders(context: Context, taskId: Int) {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        workManager.cancelAllWorkByTag("task_reminder_$taskId")
+    }
 
-        // Dodaj nowe zadanie z `order = maxOrder + 1`
+    fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
+        val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
         val newTodo = Todo(
             id = generateUniqueId(),
             title = title,
@@ -111,34 +113,44 @@ object TodoManager {
             order = maxOrder + 1
         )
         todoList.add(newTodo)
-
         saveTodos()
 
-        // Harmonogramuj powiadomienia, jeśli deadline istnieje
+        if (deadline != null) {
+            scheduleTaskNotifications(context, newTodo)
+        }
+    }
+
+    public fun scheduleTaskNotifications(context: Context, todo: Todo) {
+        val deadline = todo.deadline // Przechowaj wartość lokalnie, aby uniknąć problemu z castingiem
         if (deadline != null) {
             NotificationScheduler.scheduleTaskReminder(
                 context,
-                newTodo.id,
-                title,
+                todo.id,
+                todo.title,
                 deadline.time,
-                deadline.time - System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1) // 1 dzień przed
+                deadline.time - System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1),
+                "task_reminder_${todo.id}"
             )
             NotificationScheduler.scheduleTaskReminder(
                 context,
-                newTodo.id,
-                title,
+                todo.id,
+                todo.title,
                 deadline.time,
-                deadline.time - System.currentTimeMillis() - TimeUnit.HOURS.toMillis(3) // 3 godziny przed
+                deadline.time - System.currentTimeMillis() - TimeUnit.HOURS.toMillis(3),
+                "task_reminder_${todo.id}"
             )
             NotificationScheduler.scheduleTaskReminder(
                 context,
-                newTodo.id,
-                title,
+                todo.id,
+                todo.title,
                 deadline.time,
-                0 // W momencie deadlinu
+                deadline.time - System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1),
+                "task_reminder_${todo.id}"
             )
         }
     }
+
+
 
 
     fun deleteTodo(id: Int) {
@@ -259,7 +271,7 @@ object TodoManager {
 
 
 
-    private fun saveTodos() {
+    fun saveTodos() {
         val json = gson.toJson(todoList)
         preferences.edit().putString("todos", json).apply()
     }

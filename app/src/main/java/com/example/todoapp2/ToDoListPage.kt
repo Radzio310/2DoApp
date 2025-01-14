@@ -395,7 +395,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             task = task,
             onClose = { selectedTask = null },
             onSave = { updatedTask ->
-                viewModel.updateTodo(updatedTask) // Zapisz zmiany w ViewModel
+                viewModel.updateTodo(context, updatedTask) // Zapisz zmiany w ViewModel
                 selectedTask = null // Zamknij modalne okno
             }
         )
@@ -897,6 +897,7 @@ fun ProjectDetailDialog(
                         project.description = description
                         project.deadline = deadline
                         project.tasks = tasks.toList().toMutableList()
+                        onSave(project)
                         saveProjectState(project) // Zapisz stan projektu
                         onClose() // Zamknij dialog
                     }) {

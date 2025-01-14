@@ -34,17 +34,29 @@ class DailySummaryWorker(
 }
 
 object NotificationScheduler {
-    fun scheduleTaskReminder(context: Context, taskId: Int, title: String, deadline: Long, offsetMillis: Long) {
-        val workRequest = OneTimeWorkRequestBuilder<TaskReminderWorker>()
+    fun scheduleTaskReminder(
+        context: Context,
+        taskId: Int,
+        title: String,
+        deadline: Long,
+        offsetMillis: Long,
+        tag: String
+    ) {
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<TaskReminderWorker>()
             .setInitialDelay(offsetMillis, TimeUnit.MILLISECONDS)
-            .setInputData(workDataOf(
-                "title" to title,
-                "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
-                "taskId" to taskId
-            ))
+            .setInputData(
+                androidx.work.workDataOf(
+                    "title" to title,
+                    "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
+                    "taskId" to taskId
+                )
+            )
+            .addTag(tag) // Dodanie unikalnego tagu
             .build()
-        WorkManager.getInstance(context).enqueue(workRequest)
+
+        androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
     }
+
 
     fun scheduleDailySummary(context: Context) {
         val workRequest = PeriodicWorkRequestBuilder<DailySummaryWorker>(
