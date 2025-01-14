@@ -50,24 +50,35 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.core.ktx) // Obsługa Core KTX
+    implementation(libs.androidx.lifecycle.runtime.ktx) // Obsługa Lifecycle
+    implementation(libs.androidx.activity.compose) // Obsługa Activity Compose
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
+    // Compose
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui) // Podstawowe UI Compose
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.runtime:runtime-livedata:1.6.6")
-    implementation ("com.google.code.gson:gson:2.10.1")
-    implementation("androidx.compose.ui:ui:1.5.0")
-    implementation(libs.firebase.crashlytics.buildtools)
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.1") // LiveData dla Compose
+
+    // Gson (JSON)
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // WorkManager (dla powiadomień)
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
+
+    // Kotlin Standard Library
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+
+    // Testowanie
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
+    // Debugowanie
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

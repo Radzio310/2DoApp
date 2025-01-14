@@ -1,5 +1,7 @@
 package com.example.todoapp2
 
+import android.content.Context
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -17,9 +19,9 @@ class TodoViewModel : ViewModel() {
         _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
     }
 
-    fun addTodo(title: String, deadline: Date?, isProject: Boolean) {
-        TodoManager.addTodo(title, deadline, isProject)
-        getAllTodo()
+    fun addTodo(context: Context, title: String, deadline: Date?, isProject: Boolean) {
+        TodoManager.addTodo(context, title, deadline, isProject)
+        getAllTodo() // Odśwież listę
     }
 
     fun deleteTodo(id: Int) {
@@ -85,11 +87,6 @@ class TodoViewModel : ViewModel() {
             getAllTodo()
         }
     }
-
-
-
-
-
 
 
     fun updateTodo(updatedTodo: Todo) {

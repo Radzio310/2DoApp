@@ -2,10 +2,13 @@ package com.example.todoapp2
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import com.google.gson.Gson
 import java.time.Instant
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 object TodoManager {
     private lateinit var preferences: SharedPreferences
@@ -94,7 +97,7 @@ object TodoManager {
         saveTodos()
     }
 
-    fun addTodo(title: String, deadline: Date? = null, isProject: Boolean = false) {
+    fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
         // Znajdź największy istniejący `order`, jeśli lista nie jest pusta
         val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
 
@@ -110,9 +113,32 @@ object TodoManager {
         todoList.add(newTodo)
 
         saveTodos()
+
+        // Harmonogramuj powiadomienia, jeśli deadline istnieje
+        if (deadline != null) {
+            NotificationScheduler.scheduleTaskReminder(
+                context,
+                newTodo.id,
+                title,
+                deadline.time,
+                deadline.time - System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1) // 1 dzień przed
+            )
+            NotificationScheduler.scheduleTaskReminder(
+                context,
+                newTodo.id,
+                title,
+                deadline.time,
+                deadline.time - System.currentTimeMillis() - TimeUnit.HOURS.toMillis(3) // 3 godziny przed
+            )
+            NotificationScheduler.scheduleTaskReminder(
+                context,
+                newTodo.id,
+                title,
+                deadline.time,
+                0 // W momencie deadlinu
+            )
+        }
     }
-
-
 
 
     fun deleteTodo(id: Int) {

@@ -128,7 +128,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                                 calendar.set(Calendar.HOUR_OF_DAY, hour)
                                                 calendar.set(Calendar.MINUTE, minute)
                                                 selectedDeadline = calendar.time
-                                                viewModel.addTodo(inputText, selectedDeadline, isProject)
+                                                viewModel.addTodo(context, inputText, selectedDeadline, isProject)
                                                 inputText = ""
                                                 selectedDeadline = null
                                                 isProject = false
@@ -143,7 +143,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                     calendar.get(Calendar.DAY_OF_MONTH)
                                 ).show()
                             } else {
-                                viewModel.addTodo(inputText, null, isProject)
+                                viewModel.addTodo(context, inputText, null, isProject)
                                 inputText = ""
                                 isProject = false
                             }
@@ -174,7 +174,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                             calendar.set(Calendar.HOUR_OF_DAY, hour)
                                             calendar.set(Calendar.MINUTE, minute)
                                             selectedDeadline = calendar.time
-                                            viewModel.addTodo(inputText, selectedDeadline, isProject)
+                                            viewModel.addTodo(context, inputText, selectedDeadline, isProject)
                                             inputText = ""
                                             selectedDeadline = null
                                             isProject = false
@@ -189,7 +189,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                 calendar.get(Calendar.DAY_OF_MONTH)
                             ).show()
                         } else {
-                            viewModel.addTodo(inputText, null, isProject)
+                            viewModel.addTodo(context, inputText, null, isProject)
                             inputText = ""
                             isProject = false
                         }
