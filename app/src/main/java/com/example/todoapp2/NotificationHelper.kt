@@ -44,8 +44,8 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, "daily_summary")
             .setSmallIcon(R.mipmap.ic_launcher) // Zmień na ikonę aplikacji
-            .setContentTitle("Dzień dobry, cześć!")
-            .setContentText("Masz dzisiaj $taskCount zadań i $projectCount projektów do wykonania. Lecimy z tematem! 💪")
+            .setContentTitle("Dzień dobry, cześć! 💪")
+            .setContentText("Masz dzisiaj $taskCount zadania i $projectCount projektów ;)")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

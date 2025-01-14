@@ -150,7 +150,13 @@ object TodoManager {
         }
     }
 
+    fun getIncompleteTasksCount(): Int {
+        return todoList.count { !it.isCompleted && !it.isProject }
+    }
 
+    fun getIncompleteProjectsCount(): Int {
+        return todoList.count { !it.isCompleted && it.isProject }
+    }
 
 
     fun deleteTodo(id: Int) {
