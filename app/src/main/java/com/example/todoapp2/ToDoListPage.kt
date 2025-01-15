@@ -61,36 +61,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
     val draggingItemId = remember { mutableStateOf<Int?>(null) }
     val dragOffset = remember { mutableStateOf(0f) }
-    val draggingOffset = remember { mutableStateOf(0f) }
 
-    fun onDrag(itemId: Int, deltaY: Float) {
-        // Znajdź indeks aktualnie przeciąganego elementu
-        val currentIndex = todoList?.indexOfFirst { it.id == itemId } ?: return
-
-        // Wylicz docelowy indeks w zależności od kierunku przeciągania
-        val targetIndex = if (deltaY > 0) currentIndex + 1 else currentIndex - 1
-
-        // Pobierz element docelowy
-        val targetItem = todoList?.getOrNull(targetIndex)
-
-        if (targetItem != null) {
-            // Zamień kolejność elementów w ViewModel
-            viewModel.updateOrder(itemId, targetItem.order)
-            viewModel.updateOrder(targetItem.id, currentIndex)
-
-            // Zaktualizuj listę (LiveData)
-            viewModel.getAllTodo()
-        }
-    }
-
-    fun onDragEnd(itemId: Int) {
-        // Wyzerowanie stanu przeciągania
-        draggingItemId.value = null
-        dragOffset.value = 0f
-
-        // Finalne zapisanie zmian w ViewModel
-        viewModel.getAllTodo()
-    }
+    var todoToDelete by remember { mutableStateOf<Todo?>(null) }
 
 
 
@@ -285,8 +257,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                 onClick = {
                                     if (item.isProject) showModal = item else selectedTask = item
                                 },
-                                onDelete = { viewModel.deleteTodo(item.id) },
-                                onMarkComplete = { viewModel.markAsCompleted(item.id) },
+                                onDelete = { todoToDelete = item },
+                                onMarkComplete = { viewModel.markAsCompleted(context, item.id) },
                                 onMoveUp = { id -> viewModel.moveItemUp(id) },
                                 onMoveDown = { id -> viewModel.moveItemDown(id) },
                                 modifier = Modifier
@@ -401,7 +373,121 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
         )
     }
 
+    todoToDelete?.let { todo ->
+        CustomStyledAlertDialog(
+            title = "Potwierdzenie usunięcia",
+            message = "Czy na pewno chcesz usunąć \"${todo.title}\"?",
+            onConfirm = {
+                viewModel.deleteTodo(context, todo.id) // Usuń zadanie/projekt
+                todoToDelete = null // Zamknij dialog
+            },
+            onDismiss = {
+                todoToDelete = null // Zamknij dialog bez usuwania
+            }
+        )
+    }
+
+
 }
+
+@Composable
+fun CustomStyledAlertDialog(
+    title: String,
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = { onDismiss() }) {
+        Surface(
+            modifier = Modifier
+                .padding(16.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFb08968), // Kolor ramki
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909) // Tło dialogu
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Nagłówek z ikoną
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo), // Zmień na swoje logo
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified, // Ikona z normalnymi kolorami
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White), // Zmniejszony tekst
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Treść komunikatu
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.LightGray),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Przyciski TAK i NIE
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // Przycisk TAK
+                    Button(
+                        onClick = onConfirm,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFe5383b)),
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .height(40.dp)
+                    ) {
+                        Text(
+                            text = "Usuń",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    // Przycisk NIE
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .height(40.dp)
+                    ) {
+                        Text(
+                            text = "Zachowaj",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 
 @Composable
@@ -516,13 +602,14 @@ fun TodoItem(
                 tint = Color.White
             )
         }
-        IconButton(onClick = onDelete) {
+        IconButton(onClick = onDelete) { // Użycie funkcji przekazanej jako parametr
             Icon(
                 painter = painterResource(id = R.drawable.delete),
                 contentDescription = "Delete",
                 tint = Color.White
             )
         }
+
     }
 }
 

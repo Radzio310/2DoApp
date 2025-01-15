@@ -16,7 +16,7 @@ class TaskReminderWorker(
         val title = inputData.getString("title") ?: "Przypomnienie"
         val deadline = inputData.getString("deadline") ?: ""
         val taskId = inputData.getInt("taskId", 0)
-        NotificationHelper.sendTaskReminder(applicationContext, "Przypomnienie o zadaniu ($deadline)", "$title", taskId)
+        NotificationHelper.sendTaskReminder(applicationContext, "$title ($deadline)", "Do roboty wariacie! \uD83D\uDE01", taskId)
         return Result.success()
     }
 }
@@ -92,6 +92,10 @@ object NotificationScheduler {
             if (now.after(this)) add(Calendar.DAY_OF_MONTH, 1)
         }
         return target.timeInMillis - now.timeInMillis
+    }
+
+    fun cancelTaskReminders(context: Context, taskId: Int) {
+        WorkManager.getInstance(context).cancelAllWorkByTag("task_reminder_$taskId")
     }
 
 }

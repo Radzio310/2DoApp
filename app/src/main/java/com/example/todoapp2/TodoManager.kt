@@ -159,18 +159,54 @@ object TodoManager {
     }
 
 
-    fun deleteTodo(id: Int) {
+    fun deleteTodo(context: Context, id: Int) {
         todoList.removeIf { it.id == id }
         saveTodos()
+        NotificationScheduler.cancelTaskReminders(context, id) // Usuwanie powiadomień
     }
 
-    fun markAsCompleted(id: Int) {
+    fun markAsCompleted(context: Context, id: Int) {
         val todo = todoList.find { it.id == id }
         todo?.let {
+            val wasCompleted = it.isCompleted
             it.isCompleted = !it.isCompleted
             saveTodos()
+
+            if (it.isCompleted) {
+                // Jeśli oznaczono jako wykonane, usuń powiadomienia
+                NotificationScheduler.cancelTaskReminders(context, it.id)
+            } else {
+                // Jeśli odznaczono jako wykonane, przywróć powiadomienia
+                it.deadline?.let { deadline ->
+                    NotificationScheduler.scheduleTaskReminder(
+                        context,
+                        it.id,
+                        it.title,
+                        deadline.time,
+                        deadline.time - System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1),
+                        "task_reminder_${it.id}"
+                    )
+                    NotificationScheduler.scheduleTaskReminder(
+                        context,
+                        it.id,
+                        it.title,
+                        deadline.time,
+                        deadline.time - System.currentTimeMillis() - TimeUnit.HOURS.toMillis(3),
+                        "task_reminder_${it.id}"
+                    )
+                    NotificationScheduler.scheduleTaskReminder(
+                        context,
+                        it.id,
+                        it.title,
+                        deadline.time,
+                        0,
+                        "task_reminder_${it.id}"
+                    )
+                }
+            }
         }
     }
+
 
     fun getProjectById(id: Int): Todo? {
         return todoList.find { it.id == id && it.isProject }

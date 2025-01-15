@@ -24,13 +24,13 @@ class TodoViewModel : ViewModel() {
         getAllTodo() // Odśwież listę
     }
 
-    fun deleteTodo(id: Int) {
-        TodoManager.deleteTodo(id)
+    fun deleteTodo(context: Context, id: Int) {
+        TodoManager.deleteTodo(context, id)
         getAllTodo()
     }
 
-    fun markAsCompleted(id: Int) {
-        TodoManager.markAsCompleted(id)
+    fun markAsCompleted(context: Context, id: Int) {
+        TodoManager.markAsCompleted(context, id)
         getAllTodo()
     }
 
