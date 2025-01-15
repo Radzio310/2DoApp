@@ -27,6 +27,7 @@ object NotificationHelper {
             .build()
 
         with(NotificationManagerCompat.from(context)) {
+
             notify(taskId, notification)
         }
     }

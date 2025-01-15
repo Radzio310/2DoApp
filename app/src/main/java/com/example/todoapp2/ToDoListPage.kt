@@ -1,6 +1,7 @@
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.todoapp2.NotificationScheduler
 import com.example.todoapp2.R
 import com.example.todoapp2.Todo
 import com.example.todoapp2.TodoManager
@@ -43,6 +45,7 @@ import com.example.todoapp2.TodoManager.saveProjectState
 import com.example.todoapp2.TodoViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun TodoListPage(viewModel: TodoViewModel, context: Context) {
@@ -625,10 +628,22 @@ fun TaskDetailDialog(
     var deadline by remember { mutableStateOf(task.deadline) }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
+    var showNotificationSettingsDialog by remember { mutableStateOf(false) }
+    var notificationsEnabled by remember { mutableStateOf(true) }
+
 
     Dialog(onDismissRequest = {
-        onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
-        onClose() // Zamknij dialog
+        try {
+            if (title.isNotBlank()) {
+                onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
+            } else {
+                Toast.makeText(context, "Tytuł nie może być pusty!", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("TaskDetailDialog", "Błąd podczas zamykania dialogu: ${e.message}")
+        } finally {
+            onClose() // Zamknij dialog
+        }
     }) {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -641,6 +656,54 @@ fun TaskDetailDialog(
                     onValueChange = { title = it },
                     label = { Text("Tytuł zadania") }
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = {
+                        // Otwórz dialog do ustawienia powiadomień
+                        showNotificationSettingsDialog = true
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_notification_on),
+                            contentDescription = "Ustaw powiadomienia",
+                            tint = if (notificationsEnabled) Color.Green else Color.Gray
+                        )
+                    }
+                    IconButton(onClick = {
+                        notificationsEnabled = !notificationsEnabled
+                        if (!notificationsEnabled) {
+                            TodoManager.cancelTaskReminders(context, task.id)
+                        } else {
+                            TodoManager.scheduleTaskNotifications(context, task)
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_notification_off),
+                            contentDescription = "Wycisz powiadomienia",
+                            tint = if (notificationsEnabled) Color.Gray else Color.Red
+                        )
+                    }
+                }
+
+                if (showNotificationSettingsDialog && task.notifications != null) {
+                    NotificationSettingsDialog(
+                        notifications = task.notifications,
+                        onAddReminder = { timeValue, timeUnit ->
+                            val reminderTime = task.deadline!!.time - timeUnit.toMillis(timeValue.toLong())
+                            NotificationScheduler.scheduleTaskReminder(
+                                context = context,
+                                taskId = task.id,
+                                title = task.title,
+                                deadline = task.deadline!!.time,
+                                offsetMillis = reminderTime,
+                                tag = "task_reminder_${task.id}"
+                            )
+                        },
+                        onDismiss = { showNotificationSettingsDialog = false }
+                    )
+                }
+
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -732,6 +795,7 @@ fun TaskDetailDialog(
             }
         }
     }
+
 }
 
 
@@ -996,4 +1060,94 @@ fun ProjectDetailDialog(
     }
 }
 
+@Composable
+fun NotificationSettingsDialog(
+    notifications: List<Pair<Long, String>>, // Lista obecnych powiadomień
+    onAddReminder: (Int, TimeUnit) -> Unit, // Dodanie powiadomienia
+    onDismiss: () -> Unit
+) {
+    var timeValue by remember { mutableStateOf(1) }
+    var timeUnit by remember { mutableStateOf(TimeUnit.DAYS) }
+    var expanded by remember { mutableStateOf(false) }
 
+    Dialog(onDismissRequest = {
+        TodoManager.saveTodos()
+        onDismiss()
+    }) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Powiadomienia", style = MaterialTheme.typography.titleMedium)
+
+                LazyColumn {
+                    items(notifications) { notification ->
+                        Text(text = notification.second)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Dodaj przypomnienie:")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        TextField(
+                            value = timeValue.toString(),
+                            onValueChange = { timeValue = it.toIntOrNull() ?: 1 },
+                            modifier = Modifier.width(64.dp),
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Box {
+                            Text(
+                                text = "Wybierz jednostkę czasu:",
+                                modifier = Modifier
+                                    .clickable { expanded = true } // Rozwijanie menu
+                                    .padding(8.dp)
+                            )
+
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }, // Zamknięcie menu
+                                modifier = Modifier.wrapContentSize()
+                            ) {
+                                TimeUnit.values().forEach { unit ->
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            timeUnit = unit
+                                            expanded = false
+                                        },
+                                        text = {
+                                            Text(text = unit.name.lowercase())
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = {
+                    onAddReminder(timeValue, timeUnit)
+                }) {
+                    Text("Dodaj powiadomienie")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = onDismiss) {
+                    Text("Zamknij")
+                }
+            }
+        }
+    }
+}

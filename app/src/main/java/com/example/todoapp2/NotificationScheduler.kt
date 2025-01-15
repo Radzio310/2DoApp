@@ -16,7 +16,7 @@ class TaskReminderWorker(
         val title = inputData.getString("title") ?: "Przypomnienie"
         val deadline = inputData.getString("deadline") ?: ""
         val taskId = inputData.getInt("taskId", 0)
-        NotificationHelper.sendTaskReminder(applicationContext, "$title ($deadline)", "Do roboty wariacie! \uD83D\uDE01", taskId)
+        NotificationHelper.sendTaskReminder(applicationContext, "\uD83D\uDD14 $title", "Do roboty wariacie!\uD83D\uDE01 ($deadline)", taskId)
         return Result.success()
     }
 }
@@ -45,19 +45,20 @@ object NotificationScheduler {
         offsetMillis: Long,
         tag: String
     ) {
-        val workRequest = androidx.work.OneTimeWorkRequestBuilder<TaskReminderWorker>()
+        val uniqueTag = "task_reminder_${taskId}_${System.currentTimeMillis()}" // Unikalny tag
+        val workRequest = OneTimeWorkRequestBuilder<TaskReminderWorker>()
             .setInitialDelay(offsetMillis, TimeUnit.MILLISECONDS)
             .setInputData(
-                androidx.work.workDataOf(
+                workDataOf(
                     "title" to title,
                     "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
                     "taskId" to taskId
                 )
             )
-            .addTag(tag) // Dodanie unikalnego tagu
+            .addTag(uniqueTag) // Użycie unikalnego tagu
             .build()
 
-        androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+        WorkManager.getInstance(context).enqueue(workRequest)
     }
 
 

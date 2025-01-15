@@ -2,6 +2,7 @@ package com.example.todoapp2
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.google.gson.Gson
@@ -102,6 +103,8 @@ object TodoManager {
         workManager.cancelAllWorkByTag("task_reminder_$taskId")
     }
 
+
+
     fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
         val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
         val newTodo = Todo(
@@ -120,8 +123,8 @@ object TodoManager {
         }
     }
 
-    public fun scheduleTaskNotifications(context: Context, todo: Todo) {
-        val deadline = todo.deadline // Przechowaj wartość lokalnie, aby uniknąć problemu z castingiem
+    fun scheduleTaskNotifications(context: Context, todo: Todo) {
+        val deadline = todo.deadline
         if (deadline != null) {
             NotificationScheduler.scheduleTaskReminder(
                 context,
@@ -147,8 +150,12 @@ object TodoManager {
                 deadline.time - System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1),
                 "task_reminder_${todo.id}"
             )
+        } else {
+            // Obsłuż przypadek, gdy deadline jest null
+            Toast.makeText(context, "Brak ustawionego deadline'u dla zadania ${todo.id}", Toast.LENGTH_SHORT).show()
         }
     }
+
 
     fun getIncompleteTasksCount(): Int {
         return todoList.count { !it.isCompleted && !it.isProject }
@@ -160,10 +167,14 @@ object TodoManager {
 
 
     fun deleteTodo(context: Context, id: Int) {
+        todoList.find { it.id == id }?.let {
+            it.notifications.clear() // Wyczyść listę powiadomień
+        }
         todoList.removeIf { it.id == id }
         saveTodos()
-        NotificationScheduler.cancelTaskReminders(context, id) // Usuwanie powiadomień
+        NotificationScheduler.cancelTaskReminders(context, id)
     }
+
 
     fun markAsCompleted(context: Context, id: Int) {
         val todo = todoList.find { it.id == id }
