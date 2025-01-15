@@ -100,6 +100,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                                 calendar.set(Calendar.HOUR_OF_DAY, hour)
                                                 calendar.set(Calendar.MINUTE, minute)
                                                 selectedDeadline = calendar.time
+
+                                                // Sprawdzenie, czy deadline jest w przeszłości
+                                                if (selectedDeadline!!.before(Date())) {
+                                                    Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
+                                                }
+
                                                 viewModel.addTodo(context, inputText, selectedDeadline, isProject)
                                                 inputText = ""
                                                 selectedDeadline = null
@@ -146,6 +152,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                             calendar.set(Calendar.HOUR_OF_DAY, hour)
                                             calendar.set(Calendar.MINUTE, minute)
                                             selectedDeadline = calendar.time
+
+                                            // Sprawdzenie, czy deadline jest w przeszłości
+                                            if (selectedDeadline!!.before(Date())) {
+                                                Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
+                                            }
+
                                             viewModel.addTodo(context, inputText, selectedDeadline, isProject)
                                             inputText = ""
                                             selectedDeadline = null
@@ -615,6 +627,7 @@ fun TodoItem(
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailDialog(
     task: Todo,
@@ -631,15 +644,53 @@ fun TaskDetailDialog(
         onClose() // Zamknij dialog
     }) {
         Surface(
+            modifier = Modifier
+                .padding(16.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFb08968),
+                    shape = RoundedCornerShape(16.dp)
+                ),
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909) // Tło dialogu
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Nagłówek z logo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo), // Logo aplikacji
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Szczegóły zadania",
+                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Edycja tytułu zadania
                 TextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Tytuł zadania") }
+                    label = { Text("Tytuł zadania", color = Color.LightGray) },
+                    colors = TextFieldDefaults.textFieldColors(
+                        containerColor = Color.Transparent,
+                        focusedIndicatorColor = Color(0xFFb08968),
+                        unfocusedIndicatorColor = Color.Gray
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -652,24 +703,21 @@ fun TaskDetailDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Jeśli deadline jest ustawiony, wyświetl go
                     if (deadline != null) {
                         Text(
-                            text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
-                            modifier = Modifier.weight(1f),
-                            color = Color.Gray
+                            text = "Deadline:\n${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            fontSize = 14.sp,
+                            color = Color(0xFFf4f0bb), // Dopasowany kolor
+                            modifier = Modifier.weight(1f)
                         )
                     } else {
                         Text(
                             text = "Brak deadline’u",
-                            modifier = Modifier.weight(1f),
                             color = Color.LightGray
                         )
                     }
 
-                    // Ikona do wyboru deadline’u
                     IconButton(onClick = {
-                        // Wybór daty
                         DatePickerDialog(
                             context,
                             { _, year, month, dayOfMonth ->
@@ -677,13 +725,18 @@ fun TaskDetailDialog(
                                 calendar.set(Calendar.MONTH, month)
                                 calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
-                                // Po wyborze daty pokaż TimePickerDialog
                                 TimePickerDialog(
                                     context,
-                                    { _, hourOfDay, minute ->
-                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                    { _, hour, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hour)
                                         calendar.set(Calendar.MINUTE, minute)
-                                        deadline = calendar.time // Zaktualizuj deadline
+                                        deadline = calendar.time
+
+                                        // Sprawdzenie, czy deadline jest w przeszłości
+                                        if (deadline!!.before(Date())) {
+                                            Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
+                                        }
+
                                     },
                                     calendar.get(Calendar.HOUR_OF_DAY),
                                     calendar.get(Calendar.MINUTE),
@@ -695,44 +748,43 @@ fun TaskDetailDialog(
                             calendar.get(Calendar.DAY_OF_MONTH)
                         ).show()
                     }) {
-                        Icon(painterResource(id = R.drawable.ic_calendar), contentDescription = "Dodaj deadline")
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_calendar),
+                            contentDescription = "Dodaj deadline",
+                            tint = Color.White
+                        )
                     }
 
-                    // Ikona do usuwania deadline’u
-                    IconButton(onClick = {
-                        deadline = null // Usuń deadline
-                    }) {
+                    IconButton(onClick = { deadline = null }) {
                         Icon(
-                            painterResource(id = R.drawable.ic_clear_calendar), // Dodaj odpowiednią ikonę
-                            contentDescription = "Usuń deadline"
+                            painter = painterResource(id = R.drawable.ic_clear_calendar),
+                            contentDescription = "Usuń deadline",
+                            tint = Color.White
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
+                // Przycisk "Zapisz i zamknij"
+                Button(
+                    onClick = {
+                        onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
+                        Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
+                        onClose()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.Center
+                        .height(40.dp)
                 ) {
-                    // Przycisk zapisu
-                    Button(
-                        onClick = {
-                            onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
-                            Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
-                            onClose()
-                        },
-                        modifier = Modifier.padding(top = 16.dp)
-                    ) {
-                        Text("Zapisz i zamknij")
-                    }
+                    Text(text = "Zapisz i zamknij", color = Color.White)
                 }
             }
         }
     }
 }
+
 
 
 
@@ -763,20 +815,39 @@ fun ProjectDetailDialog(
     }) {
         Surface(
             modifier = Modifier
-                .fillMaxHeight(0.9f)
-                .fillMaxWidth()
-                .padding(8.dp),
-            shape = RoundedCornerShape(16.dp)
+                .padding(4.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFb08968),
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = project.title,
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
+                // Nagłówek z logo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = project.title,
+                        fontSize = 20.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    )
+                }
 
                 // Opis projektu
                 Row(
@@ -813,9 +884,10 @@ fun ProjectDetailDialog(
                 ) {
                     if (deadline != null) {
                         Text(
-                            text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
-                            modifier = Modifier.weight(1f),
-                            color = Color.Gray
+                            text = "Deadline:\n${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            fontSize = 14.sp,
+                            color = Color(0xFFf4f0bb), // Dopasowany kolor
+                            modifier = Modifier.weight(1f)
                         )
                     } else {
                         Text(
@@ -841,6 +913,11 @@ fun ProjectDetailDialog(
                                         calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
                                         calendar.set(Calendar.MINUTE, minute)
                                         deadline = calendar.time // Zaktualizuj deadline
+
+                                        // Sprawdzenie, czy deadline jest w przeszłości
+                                        if (deadline!!.before(Date())) {
+                                            Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     calendar.get(Calendar.HOUR_OF_DAY),
                                     calendar.get(Calendar.MINUTE),
@@ -980,15 +1057,21 @@ fun ProjectDetailDialog(
                         .padding(top = 16.dp),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Button(onClick = {
-                        project.description = description
-                        project.deadline = deadline
-                        project.tasks = tasks.toList().toMutableList()
-                        onSave(project)
-                        saveProjectState(project) // Zapisz stan projektu
-                        onClose() // Zamknij dialog
-                    }) {
-                        Text("Zapisz i zamknij")
+                    // Przycisk "Zapisz i zamknij"
+                    Button(
+                        onClick = {
+                            project.description = description
+                            project.deadline = deadline
+                            onSave(project)
+                            Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
+                            onClose()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Text(text = "Zapisz i zamknij", color = Color.White)
                     }
                 }
             }
