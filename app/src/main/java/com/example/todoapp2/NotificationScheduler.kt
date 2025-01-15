@@ -16,7 +16,7 @@ class TaskReminderWorker(
         val title = inputData.getString("title") ?: "Przypomnienie"
         val deadline = inputData.getString("deadline") ?: ""
         val taskId = inputData.getInt("taskId", 0)
-        NotificationHelper.sendTaskReminder(applicationContext, "$title ($deadline)", "Do roboty wariacie! \uD83D\uDE01", taskId)
+        NotificationHelper.sendTaskReminder(applicationContext, "\uD83D\uDD14 $title", "Do roboty wariacie!\uD83D\uDE01 ($deadline)", taskId)
         return Result.success()
     }
 }
