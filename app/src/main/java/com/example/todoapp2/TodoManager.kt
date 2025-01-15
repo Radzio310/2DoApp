@@ -252,6 +252,29 @@ object TodoManager {
         }
     }
 
+    fun removeTodoDeadline(context: Context, todoId: Int) {
+        val existingTodo = todoList.find { it.id == todoId }
+        existingTodo?.let {
+            cancelTaskReminders(context, it.id) // Anuluj istniejące powiadomienia
+            it.deadline = null
+            saveTodos()
+        }
+    }
+
+    fun updateTodoDeadline(context: Context, todo: Todo, newDeadline: Date?) {
+        val existingTodo = todoList.find { it.id == todo.id }
+        existingTodo?.let {
+            cancelTaskReminders(context, it.id) // Anuluj istniejące powiadomienia
+            it.deadline = newDeadline
+            saveTodos()
+
+            // Jeśli jest nowy deadline, zaplanuj powiadomienia
+            if (newDeadline != null) {
+                scheduleTaskNotifications(context, it)
+            }
+        }
+    }
+
 
     fun updateProject(
         projectId: Int,

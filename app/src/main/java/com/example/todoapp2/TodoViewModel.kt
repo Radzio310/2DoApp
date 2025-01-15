@@ -70,6 +70,17 @@ class TodoViewModel : ViewModel() {
         getAllTodo()
     }
 
+    fun updateTodoDeadline(context: Context, todo: Todo, newDeadline: Date?) {
+        TodoManager.updateTodoDeadline(context, todo, newDeadline)
+        getAllTodo()
+    }
+
+    fun removeTodoDeadline(context: Context, todoId: Int) {
+        TodoManager.removeTodoDeadline(context, todoId)
+        getAllTodo()
+    }
+
+
     fun moveItemUp(id: Int) {
         if (TodoManager.canMoveUp(id)) {
             val index = TodoManager.getAllTodo().indexOfFirst { it.id == id }

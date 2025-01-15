@@ -39,7 +39,9 @@ import com.example.todoapp2.R
 import com.example.todoapp2.Todo
 import com.example.todoapp2.TodoManager
 import com.example.todoapp2.TodoManager.generateUniqueId
+import com.example.todoapp2.TodoManager.removeTodoDeadline
 import com.example.todoapp2.TodoManager.saveProjectState
+import com.example.todoapp2.TodoManager.updateTodoDeadline
 import com.example.todoapp2.TodoViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -512,12 +514,18 @@ fun TodoItem(
     onMoveUp: (Int) -> Unit, // Przesunięcie w górę
     onMoveDown: (Int) -> Unit // Przesunięcie w dół
 ) {
-    val targetBackgroundColor = when {
-        item.isProject && item.isCompleted -> Color(0xFF74d3ae)
-        item.isProject -> Color(0xFFD5BDAD)
-        item.isCompleted -> Color(0xFF2b9348)
-        else -> Color.Transparent
-    }
+    // Przechowywanie animacji w kontekście konkretnego zadania
+    var isAnimatingCompletion by remember(item.id) { mutableStateOf(false) }
+
+    val targetBackgroundColor by animateColorAsState(
+        targetValue = when {
+            isAnimatingCompletion -> Color(0xFF2b9348) // Docelowy kolor po wykonaniu
+            item.isProject && item.isCompleted -> Color(0xFF74d3ae)
+            item.isProject -> Color(0xFFD5BDAD)
+            item.isCompleted -> Color(0xFF2b9348)
+            else -> Color.Transparent
+        }
+    )
 
     val backgroundColor by animateColorAsState(targetValue = targetBackgroundColor)
 
@@ -529,6 +537,16 @@ fun TodoItem(
     }
 
     val borderColor by animateColorAsState(targetValue = targetBorderColor)
+
+    LaunchedEffect(isAnimatingCompletion) {
+        if (isAnimatingCompletion) {
+            // Poczekaj na zakończenie animacji
+            kotlinx.coroutines.delay(300) // Czas animacji (300ms)
+            onMarkComplete() // Oznacz jako wykonane po zakończeniu animacji
+        }
+    }
+
+
 
     Row(
         modifier = Modifier
@@ -607,9 +625,11 @@ fun TodoItem(
                 )
             }
         }
-        IconButton(onClick = onMarkComplete) {
+        IconButton(onClick = { isAnimatingCompletion = true }) {
             Icon(
-                painter = painterResource(id = if (item.isCompleted) R.drawable.ic_uncheck else R.drawable.ic_check),
+                painter = painterResource(
+                    id = if (item.isCompleted) R.drawable.ic_uncheck else R.drawable.ic_check
+                ),
                 contentDescription = "Complete",
                 tint = Color.White
             )
@@ -638,6 +658,7 @@ fun TaskDetailDialog(
     var deadline by remember { mutableStateOf(task.deadline) }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
+    val oldDeadline = deadline
 
     Dialog(onDismissRequest = {
         onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
@@ -801,6 +822,7 @@ fun ProjectDetailDialog(
     var deadline by remember { mutableStateOf(project.deadline) }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
+    val oldDeadline = deadline
 
     val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks ?: emptyList()) } }
     val completedTasks = tasks.count { it.isCompleted }
@@ -935,6 +957,7 @@ fun ProjectDetailDialog(
                     // Usunięcie deadline’u
                     IconButton(onClick = {
                         deadline = null // Usuń deadline
+                        removeTodoDeadline(context, project.id)
                     }) {
                         Icon(
                             painterResource(id = R.drawable.ic_clear_calendar), // Dodaj odpowiednią ikonę
@@ -1062,9 +1085,13 @@ fun ProjectDetailDialog(
                         onClick = {
                             project.description = description
                             project.deadline = deadline
+                            project.tasks = tasks.toList().toMutableList()
+                            if(oldDeadline != deadline) {
+                                updateTodoDeadline(context, project, deadline)
+                            }
                             onSave(project)
-                            Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
-                            onClose()
+                            saveProjectState(project) // Zapisz stan projektu
+                            onClose() // Zamknij dialog
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
                         modifier = Modifier
