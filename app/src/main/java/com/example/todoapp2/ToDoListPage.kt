@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.todoapp2.NotificationScheduler
 import com.example.todoapp2.ProjectDetailDialog
 import com.example.todoapp2.R
 import com.example.todoapp2.Todo
@@ -743,15 +744,11 @@ fun TaskDetailDialog(
                         )
                     }
 
-                    //Spacer(modifier = Modifier.width(8.dp))
-
                     IconButton(
                         onClick = {
                             areNotificationsDisabled = !areNotificationsDisabled
-                            if(areNotificationsDisabled) {
-                                TodoManager.cancelTaskReminders(context, task.id)
-                            } else {
-                                TodoManager.scheduleTaskNotifications(context, task)
+                            if (areNotificationsDisabled) {
+                                NotificationScheduler.cancelTaskReminders(context, task.id)
                             }
                         }
                     ) {
@@ -761,43 +758,23 @@ fun TaskDetailDialog(
                             tint = if (areNotificationsDisabled) Color(0xFFc1121f) else Color.Gray
                         )
                     }
-
                 }
                 // Modalne okno dodawania powiadomienia
                 if (showAddNotificationDialog) {
                     AddNotificationDialog(
                         onDismiss = { showAddNotificationDialog = false },
                         onConfirm = { amount, unit ->
-                            val notificationTime = when (unit) {
-                                "minut" -> deadline?.time?.minus(TimeUnit.MINUTES.toMillis(amount.toLong()))
-                                "godzin" -> deadline?.time?.minus(TimeUnit.HOURS.toMillis(amount.toLong()))
-                                "dni" -> deadline?.time?.minus(TimeUnit.DAYS.toMillis(amount.toLong()))
-                                else -> null
+                            val offsetMillis = when (unit) {
+                                "minut" -> TimeUnit.MINUTES.toMillis(amount.toLong())
+                                "godzin" -> TimeUnit.HOURS.toMillis(amount.toLong())
+                                "dni" -> TimeUnit.DAYS.toMillis(amount.toLong())
+                                else -> 0L
                             }
-
-                            notificationTime?.let {
-                                // Rozbuduj listę powiadomień o nowe powiadomienie
-                                task.notifications.add(it)
-
-                                // Usuń wszystkie stare powiadomienia
-                                TodoManager.cancelTaskReminders(context, task.id)
-
-                                // Dodaj wszystkie powiadomienia z listy
-                                task.notifications.forEach { notification ->
-                                    TodoManager.scheduleTaskReminder(
-                                        context,
-                                        task.id,
-                                        task.title,
-                                        notification,
-                                        notification - System.currentTimeMillis(),
-                                        "task_reminder_${task.id}_$notification"
-                                    )
-                                }
-                            }
+                            task.notifications.add(offsetMillis)
                             showAddNotificationDialog = false
                             Toast.makeText(
                                 context,
-                                "Dodano przypomnienie $amount $unit przed deadlinem",
+                                "Dodano przypomnienie $amount $unit przed deadline.",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -818,89 +795,84 @@ fun TaskDetailDialog(
                     )
                 )
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(16.dp))
 
-                    // Wyświetlanie i edycja deadline’u
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        if (deadline != null) {
-                            Text(
-                                text = "Deadline:\n${
-                                    SimpleDateFormat(
-                                        "dd/MM/yyyy HH:mm",
-                                        Locale.getDefault()
-                                    ).format(deadline)
-                                }",
-                                fontSize = 14.sp,
-                                color = Color(0xFFf4f0bb), // Dopasowany kolor
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else {
-                            Text(
-                                text = "Brak deadline’u",
-                                color = Color.LightGray
-                            )
-                        }
-
-                        IconButton(onClick = {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    calendar.set(Calendar.YEAR, year)
-                                    calendar.set(Calendar.MONTH, month)
-                                    calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-
-                                    TimePickerDialog(
-                                        context,
-                                        { _, hour, minute ->
-                                            calendar.set(Calendar.HOUR_OF_DAY, hour)
-                                            calendar.set(Calendar.MINUTE, minute)
-                                            deadline = calendar.time
-
-                                            // Sprawdzenie, czy deadline jest w przeszłości
-                                            if (deadline!!.before(Date())) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Wybrany czas już minął!",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-
-                                        },
-                                        calendar.get(Calendar.HOUR_OF_DAY),
-                                        calendar.get(Calendar.MINUTE),
-                                        true
-                                    ).show()
-                                },
-                                calendar.get(Calendar.YEAR),
-                                calendar.get(Calendar.MONTH),
-                                calendar.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_calendar),
-                                contentDescription = "Dodaj deadline",
-                                tint = Color.White
-                            )
-                        }
-
-                        IconButton(onClick = { deadline = null }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_clear_calendar),
-                                contentDescription = "Usuń deadline",
-                                tint = Color.White
-                            )
-                        }
+                // Wyświetlanie i edycja deadline’u
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (deadline != null) {
+                        Text(
+                            text = "Deadline:\n$${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            fontSize = 14.sp,
+                            color = Color(0xFFf4f0bb), // Dopasowany kolor
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Text(
+                            text = "Brak deadline’u",
+                            color = Color.LightGray
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    IconButton(onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(Calendar.YEAR, year)
+                                calendar.set(Calendar.MONTH, month)
+                                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
-                    // Przycisk "Zapisz i zamknij"
+                                TimePickerDialog(
+                                    context,
+                                    { _, hour, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hour)
+                                        calendar.set(Calendar.MINUTE, minute)
+                                        deadline = calendar.time
+
+                                        // Sprawdzenie, czy deadline jest w przeszłości
+                                        if (deadline!!.before(Date())) {
+                                            Toast.makeText(
+                                                context,
+                                                "Wybrany czas już minął!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    true
+                                ).show()
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_calendar),
+                            contentDescription = "Dodaj deadline",
+                            tint = Color.White
+                        )
+                    }
+
+                    IconButton(onClick = { deadline = null }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_clear_calendar),
+                            contentDescription = "Usuń deadline",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Przycisk "Zapisz i zamknij"
                 Button(
                     onClick = {
                         // Tworzymy kopię zadania z aktualnym stanem
@@ -908,40 +880,24 @@ fun TaskDetailDialog(
                             title = title,
                             deadline = deadline,
                             areNotificationsDisabled = areNotificationsDisabled,
-                            notifications = task.notifications?.toMutableList() ?: mutableListOf(), // Upewniamy się, że lista powiadomień jest aktualna
-                            isCompleted = task.isCompleted // Upewniamy się, że status zadania jest zapisany
+                            notifications = task.notifications.toMutableList()
                         )
 
-                        // Jeśli deadline się zmienił, zaplanuj nowe powiadomienia
-                        if (oldDeadline != deadline && deadline != null) {
-                            // Anuluj stare powiadomienia
-                            TodoManager.cancelTaskReminders(context, task.id)
-
-                            // Zaplanuj nowe powiadomienia
-                            task.notifications.forEach { notificationTime ->
-                                TodoManager.scheduleTaskReminder(
-                                    context,
-                                    task.id,
-                                    task.title,
-                                    notificationTime,
-                                    notificationTime - System.currentTimeMillis(),
-                                    "task_reminder_${task.id}_${notificationTime}"
-                                )
-                            }
-                        }
-
-                        if(areNotificationsDisabled) {
-                            TodoManager.cancelTaskReminders(context, task.id)
+                        if (areNotificationsDisabled) {
+                            NotificationScheduler.cancelTaskReminders(context, task.id)
                         } else {
-                            task.notifications.forEach { notificationTime ->
-                                TodoManager.scheduleTaskReminder(
-                                    context,
-                                    task.id,
-                                    task.title,
-                                    notificationTime,
-                                    notificationTime - System.currentTimeMillis(),
-                                    "task_reminder_${task.id}_${notificationTime}"
-                                )
+                            task.notifications.forEach { offset ->
+                                val triggerTime = deadline?.time?.minus(offset)
+                                if (triggerTime != null && triggerTime > System.currentTimeMillis()) {
+                                    NotificationScheduler.scheduleTaskReminder(
+                                        context,
+                                        task.id,
+                                        task.title,
+                                        deadline!!.time,
+                                        triggerTime - System.currentTimeMillis(),
+                                        "task_reminder_${task.id}_${offset}"
+                                    )
+                                }
                             }
                         }
 
@@ -961,12 +917,11 @@ fun TaskDetailDialog(
                 ) {
                     Text(text = "Zapisz i zamknij", color = Color.White)
                 }
-
-
-            }
             }
         }
     }
+}
+
 
 
 @Composable

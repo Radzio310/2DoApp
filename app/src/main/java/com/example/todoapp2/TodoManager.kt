@@ -152,39 +152,6 @@ object TodoManager {
         }
     }
 
-    fun scheduleTaskReminder(
-        context: Context,
-        taskId: Int,
-        title: String,
-        deadline: Long,
-        offsetMillis: Long,
-        tag: String
-    ) {
-        // Oblicz opóźnienie do wywołania powiadomienia
-        val delay = offsetMillis - System.currentTimeMillis()
-        if (delay <= 0) {
-            // Jeśli czas już minął, nie ustawiaj powiadomienia
-            return
-        }
-
-        // Utwórz `WorkRequest` dla powiadomienia
-        val workRequest = androidx.work.OneTimeWorkRequestBuilder<TaskReminderWorker>()
-            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-            .setInputData(
-                androidx.work.workDataOf(
-                    "title" to title,
-                    "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
-                    "taskId" to taskId
-                )
-            )
-            .addTag(tag) // Dodanie tagu, aby móc później anulować powiadomienie
-            .build()
-
-        // Zleć pracę w `WorkManager`
-        androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
-    }
-
-
     fun getIncompleteTasksCount(): Int {
         return todoList.count { !it.isCompleted && !it.isProject }
     }

@@ -109,28 +109,13 @@ class TodoViewModel : ViewModel() {
             it.notifications = updatedTodo.notifications.toMutableList() ?: mutableListOf()
             TodoManager.saveTodos()
 
-            if(it.deadline == null) {
+            if(it.deadline == null || it.areNotificationsDisabled) {
                 // Anuluj stare powiadomienia
                 TodoManager.cancelTaskReminders(context, it.id)
             }
 
-            if(it.areNotificationsDisabled) {
-                TodoManager.cancelTaskReminders(context, it.id)
-            } else {
-                it.notifications.forEach { notificationTime ->
-                    TodoManager.scheduleTaskReminder(
-                        context,
-                        it.id,
-                        it.title,
-                        notificationTime,
-                        notificationTime - System.currentTimeMillis(),
-                        "task_reminder_${it.id}_${notificationTime}"
-                    )
-                }
-            }
-
             // Zaplanuj nowe powiadomienia tylko jeśli deadline się zmienił
-            if (oldDeadline != updatedTodo.deadline && updatedTodo.deadline != null) {
+            if (oldDeadline != updatedTodo.deadline && updatedTodo.deadline != null && !it.areNotificationsDisabled) {
                 TodoManager.scheduleTaskNotifications(context, it)
             }
 
