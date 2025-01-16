@@ -11,6 +11,8 @@ data class Todo(
     var isProject: Boolean = false, // Pole rozróżniające zadania i projekty
     var description: String? = null, // Opis projektu
     var tasks: MutableList<Todo> = mutableListOf(), // Lista zadań wewnątrz projektu
-    var order: Int = 0 // kolejność zadań
+    var order: Int = 0, // kolejność zadań
+    var notifications: MutableList<Long> = mutableListOf(), // Lista powiadomień (czas w milisekundach przed deadline)
+    var areNotificationsDisabled: Boolean = false // Czy powiadomienia są wyłączone
 )
 

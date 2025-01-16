@@ -12,8 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,9 +30,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.todoapp2.ProjectDetailDialog
 import com.example.todoapp2.R
 import com.example.todoapp2.Todo
 import com.example.todoapp2.TodoManager
@@ -45,6 +45,7 @@ import com.example.todoapp2.TodoManager.updateTodoDeadline
 import com.example.todoapp2.TodoViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun TodoListPage(viewModel: TodoViewModel, context: Context) {
@@ -60,9 +61,6 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     var showProjects by remember { mutableStateOf(true) } // Pokaż projekty domyślnie
 
     var selectedTask by remember { mutableStateOf<Todo?>(null) }
-
-    val draggingItemId = remember { mutableStateOf<Int?>(null) }
-    val dragOffset = remember { mutableStateOf(0f) }
 
     var todoToDelete by remember { mutableStateOf<Todo?>(null) }
 
@@ -682,12 +680,15 @@ fun TaskDetailDialog(
 ) {
     var title by remember { mutableStateOf(task.title) }
     var deadline by remember { mutableStateOf(task.deadline) }
+    var areNotificationsDisabled by remember { mutableStateOf(task.areNotificationsDisabled) }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
     val oldDeadline = deadline
+    var showAddNotificationDialog by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = {
         onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
+        Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
         onClose() // Zamknij dialog
     }) {
         Surface(
@@ -724,6 +725,83 @@ fun TaskDetailDialog(
                         text = "Szczegóły zadania",
                         style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
                     )
+                    // Ikony powiadomień
+                    IconButton(
+                        onClick = {
+                            if (!areNotificationsDisabled) {
+                                showAddNotificationDialog = true
+                            } else {
+                                Toast.makeText(context, "Wyciszenie powiadomień jest aktywne. Wyłącz, aby dodać powiadomienia.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = !areNotificationsDisabled // Wyłącz, gdy powiadomienia są wyciszone
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_notification_add),
+                            contentDescription = "Dodaj powiadomienia",
+                            tint = if (!areNotificationsDisabled) Color(0xFF52b788) else Color.Gray
+                        )
+                    }
+
+                    //Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = {
+                            areNotificationsDisabled = !areNotificationsDisabled
+                            if(areNotificationsDisabled) {
+                                TodoManager.cancelTaskReminders(context, task.id)
+                            } else {
+                                TodoManager.scheduleTaskNotifications(context, task)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_notification_off),
+                            contentDescription = "Wycisz powiadomienia",
+                            tint = if (areNotificationsDisabled) Color(0xFFc1121f) else Color.Gray
+                        )
+                    }
+
+                }
+                // Modalne okno dodawania powiadomienia
+                if (showAddNotificationDialog) {
+                    AddNotificationDialog(
+                        onDismiss = { showAddNotificationDialog = false },
+                        onConfirm = { amount, unit ->
+                            val notificationTime = when (unit) {
+                                "minut" -> deadline?.time?.minus(TimeUnit.MINUTES.toMillis(amount.toLong()))
+                                "godzin" -> deadline?.time?.minus(TimeUnit.HOURS.toMillis(amount.toLong()))
+                                "dni" -> deadline?.time?.minus(TimeUnit.DAYS.toMillis(amount.toLong()))
+                                else -> null
+                            }
+
+                            notificationTime?.let {
+                                // Rozbuduj listę powiadomień o nowe powiadomienie
+                                task.notifications.add(it)
+
+                                // Usuń wszystkie stare powiadomienia
+                                TodoManager.cancelTaskReminders(context, task.id)
+
+                                // Dodaj wszystkie powiadomienia z listy
+                                task.notifications.forEach { notification ->
+                                    TodoManager.scheduleTaskReminder(
+                                        context,
+                                        task.id,
+                                        task.title,
+                                        notification,
+                                        notification - System.currentTimeMillis(),
+                                        "task_reminder_${task.id}_$notification"
+                                    )
+                                }
+                            }
+                            showAddNotificationDialog = false
+                            Toast.makeText(
+                                context,
+                                "Dodano przypomnienie $amount $unit przed deadlinem",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -740,91 +818,140 @@ fun TaskDetailDialog(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
-                // Wyświetlanie i edycja deadline’u
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    if (deadline != null) {
-                        Text(
-                            text = "Deadline:\n${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
-                            fontSize = 14.sp,
-                            color = Color(0xFFf4f0bb), // Dopasowany kolor
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
-                        Text(
-                            text = "Brak deadline’u",
-                            color = Color.LightGray
-                        )
-                    }
-
-                    IconButton(onClick = {
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                calendar.set(Calendar.YEAR, year)
-                                calendar.set(Calendar.MONTH, month)
-                                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-
-                                TimePickerDialog(
-                                    context,
-                                    { _, hour, minute ->
-                                        calendar.set(Calendar.HOUR_OF_DAY, hour)
-                                        calendar.set(Calendar.MINUTE, minute)
-                                        deadline = calendar.time
-
-                                        // Sprawdzenie, czy deadline jest w przeszłości
-                                        if (deadline!!.before(Date())) {
-                                            Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
-                                        }
-
-                                    },
-                                    calendar.get(Calendar.HOUR_OF_DAY),
-                                    calendar.get(Calendar.MINUTE),
-                                    true
-                                ).show()
-                            },
-                            calendar.get(Calendar.YEAR),
-                            calendar.get(Calendar.MONTH),
-                            calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
-                    }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_calendar),
-                            contentDescription = "Dodaj deadline",
-                            tint = Color.White
-                        )
-                    }
-
-                    IconButton(onClick = { deadline = null }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_clear_calendar),
-                            contentDescription = "Usuń deadline",
-                            tint = Color.White
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Przycisk "Zapisz i zamknij"
-                Button(
-                    onClick = {
-                        val updatedTask = task.copy(title = title, deadline = deadline)
-
-                        if (oldDeadline != deadline) {
-                            Toast.makeText(context, "Zmiany zapisane. Powiadomienia zaktualizowane.", Toast.LENGTH_SHORT).show()
+                    // Wyświetlanie i edycja deadline’u
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        if (deadline != null) {
+                            Text(
+                                text = "Deadline:\n${
+                                    SimpleDateFormat(
+                                        "dd/MM/yyyy HH:mm",
+                                        Locale.getDefault()
+                                    ).format(deadline)
+                                }",
+                                fontSize = 14.sp,
+                                color = Color(0xFFf4f0bb), // Dopasowany kolor
+                                modifier = Modifier.weight(1f)
+                            )
                         } else {
-                            Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
+                            Text(
+                                text = "Brak deadline’u",
+                                color = Color.LightGray
+                            )
                         }
 
+                        IconButton(onClick = {
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    calendar.set(Calendar.YEAR, year)
+                                    calendar.set(Calendar.MONTH, month)
+                                    calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+                                    TimePickerDialog(
+                                        context,
+                                        { _, hour, minute ->
+                                            calendar.set(Calendar.HOUR_OF_DAY, hour)
+                                            calendar.set(Calendar.MINUTE, minute)
+                                            deadline = calendar.time
+
+                                            // Sprawdzenie, czy deadline jest w przeszłości
+                                            if (deadline!!.before(Date())) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Wybrany czas już minął!",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+
+                                        },
+                                        calendar.get(Calendar.HOUR_OF_DAY),
+                                        calendar.get(Calendar.MINUTE),
+                                        true
+                                    ).show()
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_calendar),
+                                contentDescription = "Dodaj deadline",
+                                tint = Color.White
+                            )
+                        }
+
+                        IconButton(onClick = { deadline = null }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_clear_calendar),
+                                contentDescription = "Usuń deadline",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Przycisk "Zapisz i zamknij"
+                Button(
+                    onClick = {
+                        // Tworzymy kopię zadania z aktualnym stanem
+                        val updatedTask = task.copy(
+                            title = title,
+                            deadline = deadline,
+                            areNotificationsDisabled = areNotificationsDisabled,
+                            notifications = task.notifications?.toMutableList() ?: mutableListOf(), // Upewniamy się, że lista powiadomień jest aktualna
+                            isCompleted = task.isCompleted // Upewniamy się, że status zadania jest zapisany
+                        )
+
+                        // Jeśli deadline się zmienił, zaplanuj nowe powiadomienia
+                        if (oldDeadline != deadline && deadline != null) {
+                            // Anuluj stare powiadomienia
+                            TodoManager.cancelTaskReminders(context, task.id)
+
+                            // Zaplanuj nowe powiadomienia
+                            task.notifications.forEach { notificationTime ->
+                                TodoManager.scheduleTaskReminder(
+                                    context,
+                                    task.id,
+                                    task.title,
+                                    notificationTime,
+                                    notificationTime - System.currentTimeMillis(),
+                                    "task_reminder_${task.id}_${notificationTime}"
+                                )
+                            }
+                        }
+
+                        if(areNotificationsDisabled) {
+                            TodoManager.cancelTaskReminders(context, task.id)
+                        } else {
+                            task.notifications.forEach { notificationTime ->
+                                TodoManager.scheduleTaskReminder(
+                                    context,
+                                    task.id,
+                                    task.title,
+                                    notificationTime,
+                                    notificationTime - System.currentTimeMillis(),
+                                    "task_reminder_${task.id}_${notificationTime}"
+                                )
+                            }
+                        }
+
+                        // Zapisujemy zmiany zadania
                         onSave(updatedTask)
+
+                        // Wyświetlamy powiadomienie Toast
+                        Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
+
+                        // Zamykamy dialog
                         onClose()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
@@ -835,6 +962,145 @@ fun TaskDetailDialog(
                     Text(text = "Zapisz i zamknij", color = Color.White)
                 }
 
+
+            }
+            }
+        }
+    }
+
+
+@Composable
+fun AddNotificationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Int, String) -> Unit
+) {
+    var amount by remember { mutableStateOf(1) }
+    var unit by remember { mutableStateOf("minut") }
+    var isDropdownExpanded by remember { mutableStateOf(false) } // Stan rozwinięcia listy
+
+    Dialog(onDismissRequest = { onDismiss() }) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909), // Tło dialogu
+            modifier = Modifier
+                .padding(16.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFb08968),
+                    shape = RoundedCornerShape(16.dp)
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Nagłówek z logo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo), // Logo aplikacji
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Dodaj przypomnienie", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Wybór liczby
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    IconButton(onClick = { if (amount > 1) amount-- }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_remove),
+                            contentDescription = "Zmniejsz",
+                            tint = Color(0xFFb08968)
+                        )
+                    }
+                    Text(amount.toString(), fontSize = 24.sp, color = Color.White)
+                    IconButton(onClick = { amount++ }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_add),
+                            contentDescription = "Zwiększ",
+                            tint = Color(0xFFb08968)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Wybór jednostki czasu z ikoną rozwijanego menu
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { isDropdownExpanded = true } // Rozwiń listę przy kliknięciu
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(unit, fontSize = 18.sp, color = Color(0xFFb08968))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_dropdown), // Ikona rozwijanego menu
+                            contentDescription = "Rozwiń listę",
+                            tint = Color(0xFFb08968),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("przed deadlinem", color = Color.White)
+                }
+
+                // Stylizowana lista rozwijana
+                DropdownMenu(
+                    expanded = isDropdownExpanded,
+                    onDismissRequest = { isDropdownExpanded = false },
+                    modifier = Modifier
+                        .background(Color(0xFF090909)) // Dopasowanie koloru tła do dialogu
+                        .border(1.dp, Color(0xFFb08968), RoundedCornerShape(8.dp)), // Obramowanie
+                    offset = DpOffset(x = 0.dp, y = (-65).dp) // Przesunięcie w górę
+                ) {
+                    listOf("minut", "godzin", "dni").forEach {
+                        DropdownMenuItem(
+                            onClick = {
+                                unit = it
+                                isDropdownExpanded = false // Zamknij menu po wyborze
+                            },
+                            text = {
+                                Text(it, color = Color(0xFFb08968))
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF090909)) // Kolor tła pozycji
+                                .padding(4.dp) // Padding w pozycji listy
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Przycisk potwierdzenia
+                Button(
+                    onClick = {
+                        onConfirm(amount, unit)
+                        onDismiss() // Zamknij dialog po potwierdzeniu
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788))
+                ) {
+                    Text("Ustaw przypomnienie", color = Color.White)
+                }
             }
         }
     }
@@ -1027,7 +1293,10 @@ fun ProjectDetailDialog(
                                 onCheckedChange = {
                                     val index = tasks.indexOf(task)
                                     if (index != -1) {
-                                        val updatedTask = task.copy(isCompleted = !task.isCompleted)
+                                        val updatedTask = task.copy(
+                                            isCompleted = !task.isCompleted,
+                                            notifications = task.notifications ?: mutableListOf() // Upewnij się, że nie jest null
+                                        )
                                         tasks[index] = updatedTask
                                     }
                                     TodoManager.markTaskAsCompleted(project.id, task.id, !task.isCompleted)
@@ -1139,5 +1408,4 @@ fun ProjectDetailDialog(
         }
     }
 }
-
 

@@ -5,8 +5,10 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.google.gson.Gson
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.Date
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -149,6 +151,39 @@ object TodoManager {
             )
         }
     }
+
+    fun scheduleTaskReminder(
+        context: Context,
+        taskId: Int,
+        title: String,
+        deadline: Long,
+        offsetMillis: Long,
+        tag: String
+    ) {
+        // Oblicz opóźnienie do wywołania powiadomienia
+        val delay = offsetMillis - System.currentTimeMillis()
+        if (delay <= 0) {
+            // Jeśli czas już minął, nie ustawiaj powiadomienia
+            return
+        }
+
+        // Utwórz `WorkRequest` dla powiadomienia
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<TaskReminderWorker>()
+            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+            .setInputData(
+                androidx.work.workDataOf(
+                    "title" to title,
+                    "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
+                    "taskId" to taskId
+                )
+            )
+            .addTag(tag) // Dodanie tagu, aby móc później anulować powiadomienie
+            .build()
+
+        // Zleć pracę w `WorkManager`
+        androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+    }
+
 
     fun getIncompleteTasksCount(): Int {
         return todoList.count { !it.isCompleted && !it.isProject }
