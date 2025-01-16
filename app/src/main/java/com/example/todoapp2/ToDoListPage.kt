@@ -303,54 +303,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
         Spacer(modifier = Modifier.weight(1f)) // Wypełnia całą przestrzeń do dołu
 
-        // Dolny pasek z checkboxami
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(0.dp)
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Zagięte górne rogi
-                    .background(Color(0xFF090909)),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Zadania checkbox z marginesem
-                Row(
-                    modifier = Modifier.padding(start = 16.dp), // Dodaj margines od lewej
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Zadania", fontSize = 12.sp, color = Color.White)
-                    Checkbox(
-                        checked = showTasks,
-                        onCheckedChange = { showTasks = it }
-                    )
-                }
-
-                // Kalendarz w centrum
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_calendar_view), // Zmien na odpowiednią ikonę kalendarza
-                    contentDescription = "Calendar Icon",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(30.dp) // Możesz dostosować rozmiar
-                )
-
-                // Projekty checkbox z marginesem
-                Row(
-                    modifier = Modifier.padding(end = 16.dp), // Dodaj margines od prawej
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Projekty", fontSize = 12.sp, color = Color.White)
-                    Checkbox(
-                        checked = showProjects,
-                        onCheckedChange = { showProjects = it }
-                    )
-                }
-            }
-        }
+        CustomBottomBar(
+            showTasks = showTasks,
+            showProjects = showProjects,
+            onTasksToggle = { showTasks = !showTasks },
+            onProjectsToggle = { showProjects = !showProjects }
+        )
     }
 
     showModal?.let { project ->
@@ -402,6 +360,74 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     }
 
 
+}
+
+@Composable
+fun CustomBottomBar(
+    showTasks: Boolean,
+    showProjects: Boolean,
+    onTasksToggle: () -> Unit,
+    onProjectsToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Zaokrąglenie górnych rogów
+            .background(Color(0xFF090909)) // Kolor tła
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Lewa część z "Wyświetl: " i ikonami zadań/projektów
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Wyświetl:",
+                fontSize = 14.sp,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Ikona zadania
+            Icon(
+                painter = painterResource(id = R.drawable.ic_task),
+                contentDescription = "Zadania",
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { onTasksToggle() },
+                tint = if (showTasks) Color(0xFFb08968) else Color.Gray
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Ikona projektu
+            Icon(
+                painter = painterResource(id = R.drawable.ic_project),
+                contentDescription = "Projekty",
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { onProjectsToggle() },
+                tint = if (showProjects) Color(0xFFD5BDAD) else Color.Gray
+            )
+        }
+
+        // Środkowa część z ikoną kalendarza
+        Icon(
+            painter = painterResource(id = R.drawable.ic_calendar_view),
+            contentDescription = "Kalendarz",
+            modifier = Modifier.size(30.dp),
+            tint = Color.Gray
+        )
+
+        // Prawa część z ikoną użytkownika
+        Icon(
+            painter = painterResource(id = R.drawable.ic_user),
+            contentDescription = "Użytkownik",
+            modifier = Modifier
+                .size(30.dp),
+            tint = Color.Gray // Na razie wyszarzona i nieaktywna
+        )
+    }
 }
 
 @Composable
