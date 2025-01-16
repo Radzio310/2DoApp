@@ -100,27 +100,25 @@ class TodoViewModel : ViewModel() {
     }
 
 
-    fun updateTodo(context: Context, updatedTodo: Todo) {
+    fun updateTodo(context: Context, updatedTodo: Todo, oldDeadline: Date?) {
         val existingTodo = TodoManager.getAllTodo().find { it.id == updatedTodo.id }
         existingTodo?.let {
             it.title = updatedTodo.title
             it.deadline = updatedTodo.deadline
             TodoManager.saveTodos()
 
-            // Anuluj stare powiadomienia
-            TodoManager.cancelTaskReminders(context, it.id)
+            if(it.deadline == null) {
+                // Anuluj stare powiadomienia
+                TodoManager.cancelTaskReminders(context, it.id)
+            }
 
-            // Zaplanuj nowe powiadomienia dla zmienionego deadline'u
-            if (it.deadline != null) {
+            // Zaplanuj nowe powiadomienia tylko jeśli deadline się zmienił
+            if (oldDeadline != updatedTodo.deadline && updatedTodo.deadline != null) {
                 TodoManager.scheduleTaskNotifications(context, it)
             }
 
             getAllTodo() // Odśwież listę
         }
     }
-
-
-
-
 
 }

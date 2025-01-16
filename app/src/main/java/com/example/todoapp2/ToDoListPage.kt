@@ -336,11 +336,11 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     }
     selectedTask?.let { task ->
         TaskDetailDialog(
-            task = task,
+            task = selectedTask!!,
             onClose = { selectedTask = null },
             onSave = { updatedTask ->
-                viewModel.updateTodo(context, updatedTask) // Zapisz zmiany w ViewModel
-                selectedTask = null // Zamknij modalne okno
+                viewModel.updateTodo(context, updatedTask, selectedTask?.deadline) // Przekazanie oldDeadline
+                selectedTask = null
             }
         )
     }
@@ -816,8 +816,15 @@ fun TaskDetailDialog(
                 // Przycisk "Zapisz i zamknij"
                 Button(
                     onClick = {
-                        onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
-                        Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
+                        val updatedTask = task.copy(title = title, deadline = deadline)
+
+                        if (oldDeadline != deadline) {
+                            Toast.makeText(context, "Zmiany zapisane. Powiadomienia zaktualizowane.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
+                        }
+
+                        onSave(updatedTask)
                         onClose()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
@@ -827,6 +834,7 @@ fun TaskDetailDialog(
                 ) {
                     Text(text = "Zapisz i zamknij", color = Color.White)
                 }
+
             }
         }
     }
