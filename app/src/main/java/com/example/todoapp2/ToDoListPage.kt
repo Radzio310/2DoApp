@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -761,25 +762,37 @@ fun TaskDetailDialog(
                 }
                 // Modalne okno dodawania powiadomienia
                 if (showAddNotificationDialog) {
+                    val oldNotifications = task.notifications.toList()
                     AddNotificationDialog(
                         onDismiss = { showAddNotificationDialog = false },
-                        onConfirm = { amount, unit ->
-                            val offsetMillis = when (unit) {
-                                "minut" -> TimeUnit.MINUTES.toMillis(amount.toLong())
-                                "godzin" -> TimeUnit.HOURS.toMillis(amount.toLong())
-                                "dni" -> TimeUnit.DAYS.toMillis(amount.toLong())
-                                else -> 0L
+                        initialNotifications = task.notifications,
+                        oldNotifications = oldNotifications,
+                        onSaveChanges = { updatedNotifications ->
+                            if (updatedNotifications != oldNotifications) {
+                                NotificationScheduler.cancelTaskReminders(context, task.id)
+
+                                updatedNotifications.forEach { offset ->
+                                    val triggerTime = task.deadline?.time?.minus(offset)
+                                    if (triggerTime != null && triggerTime > System.currentTimeMillis()) {
+                                        NotificationScheduler.scheduleTaskReminder(
+                                            context,
+                                            task.id,
+                                            task.title,
+                                            task.deadline!!.time,
+                                            triggerTime - System.currentTimeMillis(),
+                                            "task_reminder_${task.id}_${offset}"
+                                        )
+                                    }
+                                }
+                                task.notifications.clear()
+                                task.notifications.addAll(updatedNotifications)
+
                             }
-                            task.notifications.add(offsetMillis)
-                            showAddNotificationDialog = false
-                            Toast.makeText(
-                                context,
-                                "Dodano przypomnienie $amount $unit przed deadline.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+                        },
                     )
                 }
+
+
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -923,17 +936,26 @@ fun TaskDetailDialog(
 }
 
 
-
 @Composable
 fun AddNotificationDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Int, String) -> Unit
+    initialNotifications: List<Long>,
+    oldNotifications: List<Long>,
+    onSaveChanges: (List<Long>) -> Unit
 ) {
     var amount by remember { mutableStateOf(1) }
     var unit by remember { mutableStateOf("minut") }
-    var isDropdownExpanded by remember { mutableStateOf(false) } // Stan rozwinięcia listy
+    var isDropdownExpanded by remember { mutableStateOf(false) }
+    var notifications by remember { mutableStateOf(initialNotifications.toMutableList()) }
+    val context = LocalContext.current
 
-    Dialog(onDismissRequest = { onDismiss() }) {
+    Dialog(onDismissRequest = {
+        if (notifications != oldNotifications) {
+            Toast.makeText(context, "Zaktualizowano przypomnienia", Toast.LENGTH_SHORT).show()
+        }
+        onSaveChanges(notifications)
+        onDismiss()
+    }) {
         Surface(
             shape = RoundedCornerShape(16.dp),
             tonalElevation = 4.dp,
@@ -965,12 +987,54 @@ fun AddNotificationDialog(
                         modifier = Modifier.size(32.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Dodaj przypomnienie", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text("Przypomnienia", style = MaterialTheme.typography.titleMedium, color = Color.White)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Wybór liczby
+                // Lista przypomnień
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.4f)
+                        .background(Color(0xFF1C1C1E), RoundedCornerShape(16.dp))
+                        .padding(bottom = 16.dp)
+                ) {
+                    items(notifications.reversed()) { notification ->
+                        val timeText = when {
+                            notification >= TimeUnit.DAYS.toMillis(1) -> "${notification / TimeUnit.DAYS.toMillis(1)} dni przed"
+                            notification >= TimeUnit.HOURS.toMillis(1) -> "${notification / TimeUnit.HOURS.toMillis(1)} godzin przed"
+                            else -> "${notification / TimeUnit.MINUTES.toMillis(1)} minut przed"
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = timeText,
+                                color = Color.White,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = {
+                                notifications = notifications.toMutableList().also { it.remove(notification) }
+                            }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.delete),
+                                    contentDescription = "Usuń przypomnienie",
+                                    tint = Color.Red
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Wybór liczby i jednostki
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -994,7 +1058,6 @@ fun AddNotificationDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Wybór jednostki czasu z ikoną rozwijanego menu
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -1018,49 +1081,72 @@ fun AddNotificationDialog(
                     Text("przed deadlinem", color = Color.White)
                 }
 
-                // Stylizowana lista rozwijana
-                DropdownMenu(
-                    expanded = isDropdownExpanded,
-                    onDismissRequest = { isDropdownExpanded = false },
-                    modifier = Modifier
-                        .background(Color(0xFF090909)) // Dopasowanie koloru tła do dialogu
-                        .border(1.dp, Color(0xFFb08968), RoundedCornerShape(8.dp)), // Obramowanie
-                    offset = DpOffset(x = 0.dp, y = (-65).dp) // Przesunięcie w górę
-                ) {
-                    listOf("minut", "godzin", "dni").forEach {
-                        DropdownMenuItem(
-                            onClick = {
-                                unit = it
-                                isDropdownExpanded = false // Zamknij menu po wyborze
-                            },
-                            text = {
-                                Text(it, color = Color(0xFFb08968))
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF090909)) // Kolor tła pozycji
-                                .padding(4.dp) // Padding w pozycji listy
-                        )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    DropdownMenu(
+                        expanded = isDropdownExpanded,
+                        onDismissRequest = { isDropdownExpanded = false },
+                        modifier = Modifier
+                            .background(Color(0xFF090909))
+                            .border(1.dp, Color(0xFFb08968), RoundedCornerShape(8.dp))
+                            .align(Alignment.Center),
+                    ) {
+                        listOf("minut", "godzin", "dni").forEach {
+                            DropdownMenuItem(
+                                onClick = {
+                                    unit = it
+                                    isDropdownExpanded = false
+                                },
+                                text = {
+                                    Text(it, color = Color(0xFFb08968))
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF090909))
+                                    .padding(4.dp)
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Przycisk potwierdzenia
                 Button(
                     onClick = {
-                        onConfirm(amount, unit)
-                        onDismiss() // Zamknij dialog po potwierdzeniu
+                        val offsetMillis = when (unit) {
+                            "minut" -> TimeUnit.MINUTES.toMillis(amount.toLong())
+                            "godzin" -> TimeUnit.HOURS.toMillis(amount.toLong())
+                            "dni" -> TimeUnit.DAYS.toMillis(amount.toLong())
+                            else -> 0L
+                        }
+                        if (!notifications.contains(offsetMillis)) {
+                            notifications = notifications.toMutableList().also { it.add(offsetMillis) }
+                            Toast.makeText(context, "Dodano przypomnienie", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Już istnieje takie przypomnienie", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    modifier = Modifier
+                        .border(2.dp, Color(0xFFb08968), RoundedCornerShape(25.dp))
+                ) {
+                    Text("Dodaj przypomnienie", color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        onSaveChanges(notifications)
+                        onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788))
                 ) {
-                    Text("Ustaw przypomnienie", color = Color.White)
+                    Text("Zapisz zmiany", color = Color.White)
                 }
             }
         }
     }
 }
-
 
 
 
