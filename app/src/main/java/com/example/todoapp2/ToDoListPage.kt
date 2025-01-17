@@ -11,7 +11,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,17 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.todoapp2.NotificationScheduler
-import com.example.todoapp2.ProjectDetailDialog
 import com.example.todoapp2.R
 import com.example.todoapp2.Todo
 import com.example.todoapp2.TodoManager
@@ -244,7 +240,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                 .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .height(2.dp),
                 color = Color.Gray
@@ -1169,10 +1165,14 @@ fun ProjectDetailDialog(
     val completedTasks = tasks.count { it.isCompleted }
     val progress = if (tasks.isNotEmpty()) (completedTasks.toFloat() / tasks.size.toFloat()) * 100 else 0f
 
+    var showAddNotificationDialog by remember { mutableStateOf(false) }
+    var areNotificationsDisabled by remember { mutableStateOf(project.areNotificationsDisabled) }
+
     Dialog(onDismissRequest = {
         project.description = description
         project.deadline = deadline
         project.tasks = tasks.toList().toMutableList()
+        project.areNotificationsDisabled = areNotificationsDisabled
         saveProjectState(project) // Zapisz projekt
         onClose() // Wywołanie zamknięcia
     }) {
@@ -1188,29 +1188,80 @@ fun ProjectDetailDialog(
             tonalElevation = 4.dp,
             color = Color(0xFF090909)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Nagłówek z logo
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+            ) {
+                // Logo i ikony w pierwszym wierszu
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp), // Minimalny odstęp od górnej ramki
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    // Logo po lewej stronie
                     Icon(
-                        painter = painterResource(id = R.drawable.logo),
+                        painter = painterResource(id = R.drawable.logo_2),
                         contentDescription = "Logo",
                         tint = Color.Unspecified,
                         modifier = Modifier.size(32.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = project.title,
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    )
+
+                    // Ikony powiadomień po prawej stronie, bliżej siebie
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(0.dp) // Mniejszy odstęp między ikonami
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (!areNotificationsDisabled) {
+                                    showAddNotificationDialog = true
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Wyciszenie powiadomień jest aktywne. Wyłącz, aby dodać powiadomienia.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            enabled = !areNotificationsDisabled
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_notification_add),
+                                contentDescription = "Edytuj powiadomienia",
+                                tint = if (!areNotificationsDisabled) Color(0xFF52b788) else Color.Gray
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                areNotificationsDisabled = !areNotificationsDisabled
+                                if (areNotificationsDisabled) {
+                                    NotificationScheduler.cancelTaskReminders(context, project.id)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_notification_off),
+                                contentDescription = "Wycisz powiadomienia",
+                                tint = if (areNotificationsDisabled) Color(0xFFc1121f) else Color.Gray
+                            )
+                        }
+                    }
                 }
+
+                // Tytuł projektu
+                Text(
+                    text = project.title,
+                    fontSize = 20.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp) // Odstęp od logo i ikon
+                )
+
+                Spacer(modifier = Modifier.height(4.dp)) // Minimalny odstęp dla estetyki
 
                 // Opis projektu
                 Row(
@@ -1429,8 +1480,9 @@ fun ProjectDetailDialog(
                         onClick = {
                             project.description = description
                             project.deadline = deadline
+                            project.areNotificationsDisabled = areNotificationsDisabled // Zapisz stan wyciszenia
                             project.tasks = tasks.toList().toMutableList()
-                            if(oldDeadline != deadline) {
+                            if (oldDeadline != deadline) {
                                 updateTodoDeadline(context, project, deadline)
                             }
                             onSave(project)
@@ -1446,6 +1498,41 @@ fun ProjectDetailDialog(
                     }
                 }
             }
+        }
+        // Dialog edycji przypomnień
+        if (showAddNotificationDialog) {
+            val oldNotifications = project.notifications.toList()
+            AddNotificationDialog(
+                onDismiss = {
+                    showAddNotificationDialog = false
+                    if (project.notifications != oldNotifications) {
+                        Toast.makeText(context, "Zaktualizowano przypomnienia", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                initialNotifications = project.notifications,
+                oldNotifications = oldNotifications,
+                onSaveChanges = { updatedNotifications ->
+                    if (updatedNotifications != oldNotifications) {
+                        NotificationScheduler.cancelTaskReminders(context, project.id)
+                        updatedNotifications.forEach { offset ->
+                            val triggerTime = project.deadline?.time?.minus(offset)
+                            if (triggerTime != null && triggerTime > System.currentTimeMillis()) {
+                                NotificationScheduler.scheduleTaskReminder(
+                                    context,
+                                    project.id,
+                                    project.title,
+                                    project.deadline!!.time,
+                                    triggerTime - System.currentTimeMillis(),
+                                    "project_reminder_${project.id}_${offset}"
+                                )
+                            }
+                        }
+                        project.notifications.clear()
+                        project.notifications.addAll(updatedNotifications)
+                        saveProjectState(project)
+                    }
+                }
+            )
         }
     }
 }
