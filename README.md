@@ -1,6 +1,6 @@
 # 2DoApp
 
-![Logo](app/src/main/res/drawable/logo.png)
+![Logo](app/src/main/res/drawable/logo_2.png)
 
 ## Opis projektu
 
