@@ -690,7 +690,7 @@ fun TaskDetailDialog(
 
     Dialog(onDismissRequest = {
         onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
-        Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
         onClose() // Zamknij dialog
     }) {
         Surface(
@@ -918,7 +918,7 @@ fun TaskDetailDialog(
                         onSave(updatedTask)
 
                         // Wyświetlamy powiadomienie Toast
-                        Toast.makeText(context, "Zmiany zapisane.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
 
                         // Zamykamy dialog
                         onClose()

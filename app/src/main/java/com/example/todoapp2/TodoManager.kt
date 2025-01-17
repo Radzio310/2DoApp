@@ -106,21 +106,43 @@ object TodoManager {
 
     fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
         val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
+        val defaultNotifications = mutableListOf<Long>()
+
+        // Dodaj domyślne powiadomienia
+        defaultNotifications.add(TimeUnit.DAYS.toMillis(1)) // 1 dzień przed
+        defaultNotifications.add(TimeUnit.HOURS.toMillis(3)) // 3 godziny przed
+        defaultNotifications.add(TimeUnit.MINUTES.toMillis(1)) // 1 minuta przed
+
         val newTodo = Todo(
             id = generateUniqueId(),
             title = title,
             createdAt = Date.from(Instant.now()),
             deadline = deadline,
             isProject = isProject,
-            order = maxOrder + 1
+            order = maxOrder + 1,
+            notifications = defaultNotifications
         )
         todoList.add(newTodo)
         saveTodos()
 
+        // Ustaw powiadomienia, jeśli istnieje deadline
         if (deadline != null) {
-            scheduleTaskNotifications(context, newTodo)
+            defaultNotifications.forEach { offsetMillis ->
+                val triggerTime = deadline.time - offsetMillis
+                if (triggerTime > System.currentTimeMillis()) { // Ustaw powiadomienie tylko w przyszłości
+                    NotificationScheduler.scheduleTaskReminder(
+                        context = context,
+                        taskId = newTodo.id,
+                        title = newTodo.title,
+                        deadline = deadline.time,
+                        offsetMillis = offsetMillis,
+                        tag = "task_reminder_${newTodo.id}_$offsetMillis"
+                    )
+                }
+            }
         }
     }
+
 
     public fun scheduleTaskNotifications(context: Context, todo: Todo) {
         val deadline = todo.deadline // Przechowaj wartość lokalnie, aby uniknąć problemu z castingiem
@@ -165,6 +187,7 @@ object TodoManager {
         todoList.removeIf { it.id == id }
         saveTodos()
         NotificationScheduler.cancelTaskReminders(context, id) // Usuwanie powiadomień
+        cancelTaskReminders(context, id)
     }
 
     fun markAsCompleted(context: Context, id: Int) {
