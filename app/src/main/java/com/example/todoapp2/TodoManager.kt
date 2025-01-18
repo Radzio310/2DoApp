@@ -122,6 +122,7 @@ object TodoManager {
             order = maxOrder + 1,
             notifications = defaultNotifications
         )
+        initializeDefaultValues(newTodo) // Ustaw domyślne wartości
 
         // Ustaw powiadomienia, jeśli istnieje deadline
         if (deadline != null) {
@@ -257,9 +258,11 @@ object TodoManager {
             it.title = newTitle
             it.deadline = newDeadline
             it.description = newDescription
+            initializeDefaultValues(it) // Ustaw domyślne wartości dla projektu
             saveTodos()
         }
     }
+
 
     fun deleteTaskFromProject(projectId: Int, taskId: Int) {
         val project = getProjectById(projectId)
@@ -373,7 +376,18 @@ object TodoManager {
             val savedList: MutableList<Todo> = gson.fromJson(json, type)
             todoList.clear()
             todoList.addAll(savedList)
+
+            // Inicjalizacja brakujących wartości
+            todoList.forEach { initializeDefaultValues(it) }
         }
+    }
+
+
+    private fun initializeDefaultValues(todo: Todo) {
+        todo.notifications = todo.notifications ?: mutableListOf() // Ustaw puste powiadomienia, jeśli brak
+        todo.areNotificationsDisabled = todo.areNotificationsDisabled ?: false // Domyślnie powiadomienia włączone
+        todo.tasks = todo.tasks ?: mutableListOf() // Dla projektów ustaw pustą listę zadań
+        todo.description = todo.description ?: "" // Opis domyślnie pusty
     }
 
     fun saveProjectState(project: Todo) {
@@ -384,10 +398,13 @@ object TodoManager {
     fun loadProjectState(projectId: Int): Todo? {
         val json = preferences.getString("project_${projectId}", null)
         return if (json != null) {
-            gson.fromJson(json, Todo::class.java)
+            val project = gson.fromJson(json, Todo::class.java)
+            initializeDefaultValues(project) // Inicjalizacja domyślnych wartości
+            project
         } else {
             null
         }
     }
+
 }
 

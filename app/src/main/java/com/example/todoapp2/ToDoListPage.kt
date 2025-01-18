@@ -1501,34 +1501,14 @@ fun ProjectDetailDialog(
                         onClick = {
                             project.description = description
                             project.deadline = deadline
-                            project.areNotificationsDisabled = areNotificationsDisabled
+                            project.areNotificationsDisabled = areNotificationsDisabled // Zapisz stan wyciszenia
                             project.tasks = tasks.toList().toMutableList()
-
-                            // Aktualizacja powiadomień
-                            if (!areNotificationsDisabled) {
-                                if (oldDeadline != deadline) {
-                                    NotificationScheduler.cancelTaskReminders(context, project.id)
-                                    deadline?.let {
-                                        project.notifications.forEach { offset ->
-                                            val triggerTime = it.time - offset
-                                            if (triggerTime > System.currentTimeMillis()) {
-                                                NotificationScheduler.scheduleTaskReminder(
-                                                    context,
-                                                    project.id,
-                                                    project.title,
-                                                    it.time,
-                                                    triggerTime - System.currentTimeMillis(),
-                                                    "project_reminder_${project.id}_${offset}"
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            if (oldDeadline != deadline) {
+                                updateTodoDeadline(context, project, deadline)
                             }
-
                             onSave(project)
-                            saveProjectState(project)
-                            onClose()
+                            saveProjectState(project) // Zapisz stan projektu
+                            onClose() // Zamknij dialog
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
                         modifier = Modifier
