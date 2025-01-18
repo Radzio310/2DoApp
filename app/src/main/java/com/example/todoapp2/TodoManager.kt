@@ -122,8 +122,6 @@ object TodoManager {
             order = maxOrder + 1,
             notifications = defaultNotifications
         )
-        todoList.add(newTodo)
-        saveTodos()
 
         // Ustaw powiadomienia, jeśli istnieje deadline
         if (deadline != null) {
@@ -141,6 +139,8 @@ object TodoManager {
                 }
             }
         }
+        todoList.add(newTodo)
+        saveTodos()
     }
 
 
@@ -184,10 +184,10 @@ object TodoManager {
 
 
     fun deleteTodo(context: Context, id: Int) {
-        todoList.removeIf { it.id == id }
-        saveTodos()
         NotificationScheduler.cancelTaskReminders(context, id) // Usuwanie powiadomień
         cancelTaskReminders(context, id)
+        todoList.removeIf { it.id == id }
+        saveTodos()
     }
 
     fun markAsCompleted(context: Context, id: Int) {

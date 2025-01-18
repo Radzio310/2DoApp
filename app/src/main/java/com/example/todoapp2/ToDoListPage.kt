@@ -1160,6 +1160,7 @@ fun ProjectDetailDialog(
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
     val oldDeadline = deadline
+    val oldNotifications = project.notifications
 
     val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks ?: emptyList()) } }
     val completedTasks = tasks.count { it.isCompleted }
@@ -1173,6 +1174,26 @@ fun ProjectDetailDialog(
         project.deadline = deadline
         project.tasks = tasks.toList().toMutableList()
         project.areNotificationsDisabled = areNotificationsDisabled
+        // Aktualizacja powiadomień
+        if (deadline == null || areNotificationsDisabled) {
+            NotificationScheduler.cancelTaskReminders(context, project.id)
+        } else {
+            NotificationScheduler.cancelTaskReminders(context, project.id)
+            project.notifications.forEach { offset ->
+                val triggerTime = deadline!!.time - offset
+                if (triggerTime > System.currentTimeMillis()) {
+                    NotificationScheduler.scheduleTaskReminder(
+                        context,
+                        project.id,
+                        project.title,
+                        deadline!!.time,
+                        triggerTime - System.currentTimeMillis(),
+                        "project_reminder_${project.id}_${offset}"
+                    )
+                }
+            }
+        }
+
         saveProjectState(project) // Zapisz projekt
         onClose() // Wywołanie zamknięcia
     }) {
@@ -1480,14 +1501,34 @@ fun ProjectDetailDialog(
                         onClick = {
                             project.description = description
                             project.deadline = deadline
-                            project.areNotificationsDisabled = areNotificationsDisabled // Zapisz stan wyciszenia
+                            project.areNotificationsDisabled = areNotificationsDisabled
                             project.tasks = tasks.toList().toMutableList()
-                            if (oldDeadline != deadline) {
-                                updateTodoDeadline(context, project, deadline)
+
+                            // Aktualizacja powiadomień
+                            if (!areNotificationsDisabled) {
+                                if (oldDeadline != deadline) {
+                                    NotificationScheduler.cancelTaskReminders(context, project.id)
+                                    deadline?.let {
+                                        project.notifications.forEach { offset ->
+                                            val triggerTime = it.time - offset
+                                            if (triggerTime > System.currentTimeMillis()) {
+                                                NotificationScheduler.scheduleTaskReminder(
+                                                    context,
+                                                    project.id,
+                                                    project.title,
+                                                    it.time,
+                                                    triggerTime - System.currentTimeMillis(),
+                                                    "project_reminder_${project.id}_${offset}"
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
+
                             onSave(project)
-                            saveProjectState(project) // Zapisz stan projektu
-                            onClose() // Zamknij dialog
+                            saveProjectState(project)
+                            onClose()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
                         modifier = Modifier
@@ -1499,34 +1540,31 @@ fun ProjectDetailDialog(
                 }
             }
         }
+
         // Dialog edycji przypomnień
         if (showAddNotificationDialog) {
-            val oldNotifications = project.notifications.toList()
             AddNotificationDialog(
-                onDismiss = {
-                    showAddNotificationDialog = false
-                    if (project.notifications != oldNotifications) {
-                        Toast.makeText(context, "Zaktualizowano przypomnienia", Toast.LENGTH_SHORT).show()
-                    }
-                },
+                onDismiss = { showAddNotificationDialog = false },
                 initialNotifications = project.notifications,
                 oldNotifications = oldNotifications,
                 onSaveChanges = { updatedNotifications ->
                     if (updatedNotifications != oldNotifications) {
                         NotificationScheduler.cancelTaskReminders(context, project.id)
+
                         updatedNotifications.forEach { offset ->
-                            val triggerTime = project.deadline?.time?.minus(offset)
+                            val triggerTime = deadline?.time?.minus(offset)
                             if (triggerTime != null && triggerTime > System.currentTimeMillis()) {
                                 NotificationScheduler.scheduleTaskReminder(
                                     context,
                                     project.id,
                                     project.title,
-                                    project.deadline!!.time,
+                                    deadline!!.time,
                                     triggerTime - System.currentTimeMillis(),
                                     "project_reminder_${project.id}_${offset}"
                                 )
                             }
                         }
+
                         project.notifications.clear()
                         project.notifications.addAll(updatedNotifications)
                         saveProjectState(project)
