@@ -10,13 +10,38 @@ import java.util.Date
 class TodoViewModel : ViewModel() {
     private var _todoList = MutableLiveData<List<Todo>>()
     val todoList: LiveData<List<Todo>> = _todoList
+    private var _labels = MutableLiveData<List<Label>>()
+    val labels: LiveData<List<Label>> = _labels
 
     init {
         getAllTodo() // Załaduj listę przy starcie aplikacji
+        loadLabels()
     }
 
     fun getAllTodo() {
         _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
+    }
+
+    fun addLabel(name: String, color: Int) {
+        if (TodoManager.addLabel(name, color)) {
+            loadLabels()
+        }
+    }
+
+    fun assignLabel(todoId: Int, label: Label?) {
+        TodoManager.assignLabelToTodo(todoId, label)
+        getAllTodo()
+    }
+
+    fun removeLabel(label: Label) {
+        TodoManager.removeLabel(label)
+        loadLabels() // Odśwież listę etykiet
+        getAllTodo() // Odśwież listę zadań
+    }
+
+
+    private fun loadLabels() {
+        _labels.value = TodoManager.getLabels()
     }
 
     fun addTodo(context: Context, title: String, deadline: Date?, isProject: Boolean) {

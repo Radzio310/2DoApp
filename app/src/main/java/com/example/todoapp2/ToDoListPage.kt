@@ -13,18 +13,23 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material3.TextFieldDefaults.textFieldColors
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -32,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.todoapp2.Label
 import com.example.todoapp2.NotificationScheduler
 import com.example.todoapp2.R
 import com.example.todoapp2.Todo
@@ -533,23 +539,20 @@ fun TodoItem(
     onDelete: () -> Unit,
     onMarkComplete: () -> Unit,
     modifier: Modifier = Modifier,
-    onMoveUp: (Int) -> Unit, // Przesunięcie w górę
-    onMoveDown: (Int) -> Unit // Przesunięcie w dół
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit
 ) {
-    // Przechowywanie animacji w kontekście konkretnego zadania
     var isAnimatingCompletion by remember(item.id) { mutableStateOf(false) }
 
     val targetBackgroundColor by animateColorAsState(
         targetValue = when {
-            isAnimatingCompletion -> Color(0xFF2b9348) // Docelowy kolor po wykonaniu
+            isAnimatingCompletion -> Color(0xFF2b9348)
             item.isProject && item.isCompleted -> Color(0xFF74d3ae)
             item.isProject -> Color(0xFFD5BDAD)
             item.isCompleted -> Color(0xFF2b9348)
             else -> Color.Transparent
         }
     )
-
-    val backgroundColor by animateColorAsState(targetValue = targetBackgroundColor)
 
     val targetBorderColor = when {
         item.isProject && item.isCompleted -> Color(0xFF74d3ae)
@@ -558,114 +561,139 @@ fun TodoItem(
         else -> Color(0xFFb08968)
     }
 
-    val borderColor by animateColorAsState(targetValue = targetBorderColor)
-
     LaunchedEffect(isAnimatingCompletion) {
         if (isAnimatingCompletion) {
-            // Poczekaj na zakończenie animacji
-            kotlinx.coroutines.delay(300) // Czas animacji (300ms)
-            onMarkComplete() // Oznacz jako wykonane po zakończeniu animacji
+            kotlinx.coroutines.delay(300)
+            onMarkComplete()
         }
     }
 
-
-
-    Row(
-        modifier = Modifier
+    Box(
+        modifier = modifier
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor)
+            .background(targetBackgroundColor)
+            .border(2.dp, targetBorderColor, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .border(2.dp, borderColor, RoundedCornerShape(16.dp))
-            .padding(12.dp), // Zmniejszenie paddingu w wierszu
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Kolumna ikon strzałek do przesuwania
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .width(24.dp)
-        ) {
-            IconButton(
-                onClick = { onMoveUp(item.id) },
-                enabled = TodoManager.canMoveUp(item.id), // W górę to "niższy" element w odwróconej kolejności
-                modifier = Modifier.size(20.dp)
+        // Etykieta w prawym górnym rogu
+        item.label?.let {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .background(Color(it.color), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_up),
-                    contentDescription = "Move Up",
-                    tint = if (TodoManager.canMoveUp(item.id)) Color.LightGray else Color.Gray
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            IconButton(
-                onClick = { onMoveDown(item.id) },
-                enabled = TodoManager.canMoveDown(item.id), // W dół to "wyższy" element w odwróconej kolejności
-                modifier = Modifier.size(20.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_down),
-                    contentDescription = "Move Down",
-                    tint = if (TodoManager.canMoveDown(item.id)) Color.LightGray else Color.Gray
-                )
-            }
-        }
-
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = SimpleDateFormat("HH:mm aa, dd/MM", Locale.ENGLISH).format(item.createdAt),
-                fontSize = 10.sp,
-                color = Color.Gray
-            )
-            Text(
-                text = item.title,
-                fontSize = 20.sp,
-                color = Color.White
-            )
-            item.deadline?.let {
                 Text(
-                    text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}",
-                    fontSize = 12.sp,
-                    color = Color(0xFFf4f0bb)
-                )
-            }
-
-            // Pasek postępu dla projektów
-            if (item.isProject) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = if (item.tasks.isNotEmpty()) {
-                        val completedTasks = item.tasks.count { it.isCompleted }
-                        completedTasks.toFloat() / item.tasks.size
-                    } else 0f,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF2b9348),
-                    trackColor = Color(0xFFb08968)
+                    text = it.name,
+                    color = Color.Black,
+                    fontSize = 12.sp
                 )
             }
         }
-        IconButton(onClick = { isAnimatingCompletion = true }) {
-            Icon(
-                painter = painterResource(
-                    id = if (item.isCompleted) R.drawable.ic_uncheck else R.drawable.ic_check
-                ),
-                contentDescription = "Complete",
-                tint = Color.White
-            )
-        }
-        IconButton(onClick = onDelete) { // Użycie funkcji przekazanej jako parametr
-            Icon(
-                painter = painterResource(id = R.drawable.delete),
-                contentDescription = "Delete",
-                tint = Color.White
-            )
-        }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Kolumna ikon strzałek do przesuwania
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .width(24.dp)
+            ) {
+                IconButton(
+                    onClick = { onMoveUp(item.id) },
+                    enabled = TodoManager.canMoveUp(item.id),
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_up),
+                        contentDescription = "Move Up",
+                        tint = if (TodoManager.canMoveUp(item.id)) Color.LightGray else Color.Gray
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                IconButton(
+                    onClick = { onMoveDown(item.id) },
+                    enabled = TodoManager.canMoveDown(item.id),
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_down),
+                        contentDescription = "Move Down",
+                        tint = if (TodoManager.canMoveDown(item.id)) Color.LightGray else Color.Gray
+                    )
+                }
+            }
+
+            // Kolumna z informacjami o zadaniu
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = SimpleDateFormat("HH:mm aa, dd/MM", Locale.ENGLISH).format(item.createdAt),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+                Text(
+                    text = item.title,
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+                item.deadline?.let {
+                    Text(
+                        text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}",
+                        fontSize = 12.sp,
+                        color = Color(0xFFf4f0bb)
+                    )
+                }
+
+                // Pasek postępu dla projektów
+                if (item.isProject) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = if (item.tasks.isNotEmpty()) {
+                            val completedTasks = item.tasks.count { it.isCompleted }
+                            completedTasks.toFloat() / item.tasks.size
+                        } else 0f,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF2b9348),
+                        trackColor = Color(0xFFb08968)
+                    )
+                }
+            }
+
+            // Ikona oznaczenia jako ukończone
+            IconButton(onClick = { isAnimatingCompletion = true }) {
+                Icon(
+                    painter = painterResource(
+                        id = if (item.isCompleted) R.drawable.ic_uncheck else R.drawable.ic_check
+                    ),
+                    contentDescription = "Complete",
+                    tint = Color.White
+                )
+            }
+
+            // Ikona usuwania zadania
+            IconButton(onClick = onDelete) {
+                Icon(
+                    painter = painterResource(id = R.drawable.delete),
+                    contentDescription = "Delete",
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
+
 
 
 
@@ -683,6 +711,8 @@ fun TaskDetailDialog(
     val calendar = Calendar.getInstance()
     val oldDeadline = deadline
     var showAddNotificationDialog by remember { mutableStateOf(false) }
+    var showLabelPicker by remember { mutableStateOf(false) }
+
 
     Dialog(onDismissRequest = {
         onSave(task.copy(title = title, deadline = deadline)) // Zapisz zmiany
@@ -789,15 +819,20 @@ fun TaskDetailDialog(
                 }
 
 
+                LabelSection(
+                    label = task.label,
+                    onEditLabel = { showLabelPicker = true },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Edycja tytułu zadania
                 TextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Tytuł zadania", color = Color.LightGray) },
-                    colors = TextFieldDefaults.textFieldColors(
+                    colors = textFieldColors(
                         containerColor = Color.Transparent,
                         focusedIndicatorColor = Color(0xFFb08968),
                         unfocusedIndicatorColor = Color.Gray
@@ -927,6 +962,20 @@ fun TaskDetailDialog(
                     Text(text = "Zapisz i zamknij", color = Color.White)
                 }
             }
+            if (showLabelPicker) {
+                LabelPickerDialog(
+                    currentLabel = task.label, // Dla TaskDetailDialog
+                    viewModel = TodoViewModel(),
+                    onLabelSelected = { selectedLabel ->
+                        task.label = selectedLabel // Zapisz wybraną etykietę
+                        showLabelPicker = false
+                    },
+                    onDismiss = {
+                        showLabelPicker = false // Zamknij dialog bez zmian
+                    }
+                )
+            }
+
         }
     }
 }
@@ -1554,4 +1603,255 @@ fun ProjectDetailDialog(
         }
     }
 }
+
+@Composable
+fun LabelSection(
+    label: Label?,
+    onEditLabel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        if (label != null) {
+            Box(
+                modifier = Modifier
+                    .background(color = Color(label.color), shape = RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = label.name,
+                    color = Color.Black,
+                    fontSize = 14.sp
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.clickable { onEditLabel() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_add),
+                    contentDescription = "Dodaj etykietę",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Dodaj etykietę",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            }
+        }
+        IconButton(onClick = { onEditLabel() }) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_edit),
+                contentDescription = "Edytuj etykietę"
+            )
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LabelPickerDialog(
+    currentLabel: Label?,
+    viewModel: TodoViewModel,
+    onLabelSelected: (Label?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isCreatingLabel by remember { mutableStateOf(false) }
+    var newLabelName by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf(Color(0xFFa2d2ff)) } // Domyślny kolor
+    val labels = remember { mutableStateListOf<Label>().apply { addAll(viewModel.labels.value ?: emptyList()) } }
+    val context = LocalContext.current
+
+    val availableColors = listOf(
+        Color(0xFFa2d2ff), Color(0xFFcdb4db), Color(0xFFffc8dd), Color(0xFF2a9d8f),
+        Color(0xFF03045e), Color(0xFFc7f9cc), Color(0xFFef233c), Color(0xFFffbf69),
+        Color(0xFF9c6644), Color(0xFFffbc42), Color(0xFFa5a5a5), Color(0xFFbb8588)
+    )
+
+    if (isCreatingLabel) {
+        Dialog(onDismissRequest = { isCreatingLabel = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 4.dp,
+                color = Color(0xFF090909),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Utwórz etykietę", color = Color.White, fontSize = 18.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = newLabelName,
+                        onValueChange = { newLabelName = it.take(24) },
+                        label = { Text("Nazwa etykiety", color = Color.Gray) },
+                        colors = TextFieldDefaults.textFieldColors(containerColor = Color.Transparent)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(availableColors) { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(color, RoundedCornerShape(20.dp))
+                                    .border(
+                                        2.dp,
+                                        if (color == selectedColor) Color.White else Color.Transparent,
+                                        RoundedCornerShape(20.dp)
+                                    )
+                                    .clickable { selectedColor = color }
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (newLabelName.isNotEmpty() && labels.none { it.name == newLabelName }) {
+                                val newLabel = Label(name = newLabelName, color = selectedColor.toArgb())
+                                labels.add(newLabel) // Dodanie etykiety do lokalnej listy
+                                viewModel.addLabel(newLabelName, selectedColor.toArgb()) // Zapis w ViewModel
+                                Toast.makeText(context, "Etykieta dodana", Toast.LENGTH_SHORT).show()
+                                isCreatingLabel = false
+                            } else {
+                                Toast.makeText(context, "Etykieta o tej nazwie już istnieje", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        modifier = Modifier
+                            .border(2.dp, Color(0xFFb08968), RoundedCornerShape(25.dp))
+                    ) {
+                        Text("Dodaj etykietę", color = Color.White)
+                    }
+
+                }
+            }
+        }
+    } else {
+        Dialog(onDismissRequest = { onDismiss() }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 4.dp,
+                color = Color(0xFF090909),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Wybierz etykietę", color = Color.White, fontSize = 18.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        items(labels) { label ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp) // Pośrednia wysokość
+                                    .padding(4.dp)
+                                    .clickable { onLabelSelected(label) } // Ustaw etykietę jako aktualną
+                                    .background(Color(label.color), RoundedCornerShape(8.dp)),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    label.name,
+                                    color = Color.Black,
+                                    fontSize = 14.sp, // Większa czcionka
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                                IconButton(
+                                    onClick = { labels.remove(label); viewModel.removeLabel(label) },
+                                    modifier = Modifier.size(20.dp) // Większa ikona
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.delete),
+                                        contentDescription = "Usuń etykietę",
+                                        tint = Color.Red
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = { isCreatingLabel = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        modifier = Modifier
+                            .border(2.dp, Color(0xFFb08968), RoundedCornerShape(25.dp))
+                    ) {
+                        Text("Utwórz etykietę", color = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { onLabelSelected(null) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFe63946)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Text("Usuń etykietę", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 

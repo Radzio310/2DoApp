@@ -17,11 +17,13 @@ object TodoManager {
     private val gson = Gson()
     private val todoList = mutableListOf<Todo>()
     private var lastGeneratedId = 0;
+    private val labels = mutableListOf<Label>() // Lista dostępnych etykiet
 
     fun init(context: Context) {
         preferences = context.getSharedPreferences("todo_prefs", Context.MODE_PRIVATE)
         loadLastGeneratedId() // Załaduj ID z pamięci
         loadTodos()
+        loadLabels()
         fixDuplicateOrders()
     }
 
@@ -103,6 +105,50 @@ object TodoManager {
         val workManager = androidx.work.WorkManager.getInstance(context)
         workManager.cancelAllWorkByTag("task_reminder_$taskId")
     }
+
+    // Zarządzanie etykietami
+    fun addLabel(name: String, color: Int): Boolean {
+        if (labels.any { it.name == name }) return false
+        labels.add(Label(name, color))
+        saveLabels()
+        return true
+    }
+
+    fun getLabels(): List<Label> = labels
+
+    fun assignLabelToTodo(todoId: Int, label: Label?) {
+        val todo = todoList.find { it.id == todoId }
+        todo?.label = label
+        saveTodos()
+    }
+
+    private fun saveLabels() {
+        val json = gson.toJson(labels)
+        preferences.edit().putString("labels", json).apply()
+    }
+
+    private fun loadLabels() {
+        val json = preferences.getString("labels", null)
+        if (json != null) {
+            val type = object : com.google.gson.reflect.TypeToken<MutableList<Label>>() {}.type
+            val savedLabels: MutableList<Label> = gson.fromJson(json, type)
+            labels.clear()
+            labels.addAll(savedLabels)
+        }
+    }
+
+    fun removeLabel(label: Label) {
+        labels.removeIf { it.name == label.name }
+        saveLabels() // Zapisanie zmienionej listy etykiet
+        // Usuń etykietę z przypisanych zadań
+        todoList.forEach { todo ->
+            if (todo.label?.name == label.name) {
+                todo.label = null
+            }
+        }
+        saveTodos() // Zapisanie zmienionej listy zadań
+    }
+
 
     fun addTodo(context: Context, title: String, deadline: Date? = null, isProject: Boolean = false) {
         val maxOrder = todoList.maxOfOrNull { it.order } ?: 0
