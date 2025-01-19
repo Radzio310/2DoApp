@@ -10,12 +10,16 @@ import java.util.Date
 class TodoViewModel : ViewModel() {
     private var _todoList = MutableLiveData<List<Todo>>()
     val todoList: LiveData<List<Todo>> = _todoList
+
     private var _labels = MutableLiveData<List<Label>>()
     val labels: LiveData<List<Label>> = _labels
+    private var _selectedLabels = MutableLiveData<List<Label?>>()
+    val selectedLabels: LiveData<List<Label?>> = _selectedLabels
 
     init {
         getAllTodo() // Załaduj listę przy starcie aplikacji
         loadLabels()
+        _selectedLabels.value = listOf(null) + (_labels.value.orEmpty())
     }
 
     fun getAllTodo() {
@@ -38,6 +42,17 @@ class TodoViewModel : ViewModel() {
         loadLabels() // Odśwież listę etykiet
         getAllTodo() // Odśwież listę zadań
     }
+
+    fun toggleLabel(label: Label?) {
+        val currentSelection = _selectedLabels.value.orEmpty()
+        _selectedLabels.value = if (currentSelection.contains(label)) {
+            currentSelection - label // Usuń etykietę z widoku
+        } else {
+            currentSelection + label // Dodaj etykietę do widoku
+        }
+    }
+
+
 
 
     private fun loadLabels() {

@@ -68,6 +68,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
     var todoToDelete by remember { mutableStateOf<Todo?>(null) }
 
+    val selectedLabels = remember { mutableStateListOf<Label?>() }
+
 
 
     Column(
@@ -258,8 +260,13 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
             // Filtrujemy listę w oparciu o checkboxy
             val filteredList = todoList?.filter { todo ->
-                (showTasks && !todo.isProject) || (showProjects && todo.isProject)
+                val isTaskVisible = showTasks && !todo.isProject
+                val isProjectVisible = showProjects && todo.isProject
+                val isLabelSelected = selectedLabels.isEmpty() || selectedLabels.contains(todo.label)
+                (isTaskVisible || isProjectVisible) && isLabelSelected
             }
+
+
             LazyColumn(
                 content = {
                     itemsIndexed(filteredList ?: emptyList()) { index, item ->
@@ -306,11 +313,16 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
         Spacer(modifier = Modifier.weight(1f)) // Wypełnia całą przestrzeń do dołu
 
         CustomBottomBar(
+            viewModel = TodoViewModel(),
             showTasks = showTasks,
             showProjects = showProjects,
+            selectedLabels = viewModel.selectedLabels.value ?: emptyList(), // Użycie wartości z ViewModel
+            availableLabels = viewModel.labels.value ?: emptyList(), // Użycie dostępnych etykiet
             onTasksToggle = { showTasks = !showTasks },
-            onProjectsToggle = { showProjects = !showProjects }
+            onProjectsToggle = { showProjects = !showProjects },
+            onLabelToggle = { label -> viewModel.toggleLabel(label) } // Wywołanie metody z ViewModel
         )
+
     }
 
     showModal?.let { project ->
@@ -365,72 +377,261 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 }
 
 @Composable
-fun CustomBottomBar(
+fun CustomBottomBar(viewModel: TodoViewModel,
     showTasks: Boolean,
     showProjects: Boolean,
+    selectedLabels: List<Label?>,
+    availableLabels: List<Label>,
     onTasksToggle: () -> Unit,
-    onProjectsToggle: () -> Unit
+    onProjectsToggle: () -> Unit,
+    onLabelToggle: (Label) -> Unit,
 ) {
+    var showEditViewModal by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Zaokrąglenie górnych rogów
-            .background(Color(0xFF090909)) // Kolor tła
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Color(0xFF090909))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Lewa część z "Wyświetl: " i ikonami zadań/projektów
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Wyświetl:",
-                fontSize = 14.sp,
-                color = Color.White
+        // Przycisk "Wyświetl" z ikoną
+        Button(
+            onClick = { showEditViewModal = true },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1C1C1E))
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_view), // Ikona widoku
+                contentDescription = "Wyświetl",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
-
             Spacer(modifier = Modifier.width(8.dp))
+            Text("Wyświetl", fontSize = 14.sp, color = Color.White)
+        }
 
-            // Ikona zadania
+        // Ikona kalendarza na środku
+        IconButton(
+            onClick = { },
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1C1C1E))
+        ) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_task),
-                contentDescription = "Zadania",
-                modifier = Modifier
-                    .size(30.dp)
-                    .clickable { onTasksToggle() },
-                tint = if (showTasks) Color(0xFFb08968) else Color.Gray
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Ikona projektu
-            Icon(
-                painter = painterResource(id = R.drawable.ic_project),
-                contentDescription = "Projekty",
-                modifier = Modifier
-                    .size(30.dp)
-                    .clickable { onProjectsToggle() },
-                tint = if (showProjects) Color(0xFFD5BDAD) else Color.Gray
+                painter = painterResource(id = R.drawable.ic_calendar_view),
+                contentDescription = "Kalendarz",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
             )
         }
 
-        // Środkowa część z ikoną kalendarza
-        Icon(
-            painter = painterResource(id = R.drawable.ic_calendar_view),
-            contentDescription = "Kalendarz",
-            modifier = Modifier.size(30.dp),
-            tint = Color.Gray
-        )
-
-        // Prawa część z ikoną użytkownika
-        Icon(
-            painter = painterResource(id = R.drawable.ic_user),
-            contentDescription = "Użytkownik",
+        // Ikona użytkownika po prawej stronie
+        IconButton(
+            onClick = { },
             modifier = Modifier
-                .size(30.dp),
-            tint = Color.Gray // Na razie wyszarzona i nieaktywna
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1C1C1E))
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_user), // Ikona użytkownika
+                contentDescription = "Użytkownik",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+
+    // Wyświetl modal edycji widoku, jeśli aktywne
+    if (showEditViewModal) {
+        EditViewModal(
+            showTasks = showTasks,
+            showProjects = showProjects,
+            selectedLabels = viewModel.selectedLabels.value.orEmpty().filterNotNull(),
+            availableLabels = availableLabels,
+            onClose = { showEditViewModal = false },
+            onTasksToggle = onTasksToggle,
+            onProjectsToggle = onProjectsToggle,
+            onLabelToggle = { label -> viewModel.toggleLabel(label) }
         )
     }
 }
+
+
+@Composable
+fun EditViewModal(
+    showTasks: Boolean,
+    showProjects: Boolean,
+    selectedLabels: List<Label?>,
+    availableLabels: List<Label>,
+    onClose: () -> Unit,
+    onTasksToggle: () -> Unit,
+    onProjectsToggle: () -> Unit,
+    onLabelToggle: (Label?) -> Unit // Zaktualizowano typ, aby obsługiwać "Bez etykiety"
+) {
+    Dialog(onDismissRequest = { onClose() }) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909),
+            modifier = Modifier
+                .padding(16.dp)
+                .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Nagłówek
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Edycja widoku", color = Color.White, fontSize = 18.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Checkbox dla zadań
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Zadania", color = Color.White, fontSize = 14.sp)
+                    Checkbox(
+                        checked = showTasks,
+                        onCheckedChange = { onTasksToggle() },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFFb08968),
+                            uncheckedColor = Color.Gray
+                        )
+                    )
+                }
+
+                // Checkbox dla projektów
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Projekty", color = Color.White, fontSize = 14.sp)
+                    Checkbox(
+                        checked = showProjects,
+                        onCheckedChange = { onProjectsToggle() },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFFb08968),
+                            uncheckedColor = Color.Gray
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Nagłówek dla etykiet
+                Text("Wyświetl kategorie po etykietach", color = Color.White, fontSize = 14.sp)
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    content = {
+                        // Checkbox dla "Bez etykiety"
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .background(Color.Gray, RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Bez etykiety", color = Color.Black, fontSize = 14.sp)
+                                }
+                                Checkbox(
+                                    checked = selectedLabels.contains(null),
+                                    onCheckedChange = { isChecked ->
+                                        onLabelToggle(if (isChecked) null else null)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFFb08968),
+                                        uncheckedColor = Color.Gray
+                                    )
+                                )
+                            }
+                        }
+
+                        // Checkboxy dla pozostałych etykiet
+                        items(availableLabels) { label ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .background(Color(label.color), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = label.name,
+                                        color = if (label.color == Color.Black.toArgb()) Color.White else Color.Black,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Checkbox(
+                                    checked = selectedLabels.contains(label),
+                                    onCheckedChange = { isChecked ->
+                                        onLabelToggle(if (isChecked) label else null)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFFb08968),
+                                        uncheckedColor = Color.Gray
+                                    )
+                                )
+                            }
+                        }
+                    }
+                )
+
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Przycisk zamknięcia
+                Button(
+                    onClick = { onClose() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788)),
+                    modifier = Modifier.fillMaxWidth().height(40.dp)
+                ) {
+                    Text("Wróć do 2DO listy", color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+
 
 @Composable
 fun CustomStyledAlertDialog(
@@ -1491,7 +1692,8 @@ fun ProjectDetailDialog(
                                     TodoManager.markTaskAsCompleted(project.id, task.id, !task.isCompleted)
                                 },
                                 colors = CheckboxDefaults.colors(
-                                    checkmarkColor = if (task.isCompleted) Color.White else Color(0xFFD5BDAD)
+                                    checkedColor = Color(0xFFb08968),
+                                    uncheckedColor = Color.Gray
                                 )
                             )
                             Spacer(modifier = Modifier.width(8.dp))
