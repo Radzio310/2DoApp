@@ -19,8 +19,11 @@ class TodoViewModel : ViewModel() {
     init {
         getAllTodo() // Załaduj listę przy starcie aplikacji
         loadLabels()
-        _selectedLabels.value = listOf(null) + (_labels.value.orEmpty())
+        // Ustaw wszystkie etykiety z zadań jako domyślnie wybrane
+        val allLabels = TodoManager.getAllTodo().mapNotNull { it.label }.distinct()
+        _selectedLabels.value = listOf(null) + (_labels.value.orEmpty() + allLabels).distinct()
     }
+
 
     fun getAllTodo() {
         _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
@@ -31,6 +34,7 @@ class TodoViewModel : ViewModel() {
             loadLabels()
         }
     }
+
 
     fun assignLabel(todoId: Int, label: Label?) {
         TodoManager.assignLabelToTodo(todoId, label)
@@ -50,6 +54,16 @@ class TodoViewModel : ViewModel() {
         } else {
             currentSelection + label // Dodaj etykietę do widoku
         }
+    }
+
+    fun updateLabelVisibility(label: Label, isVisible: Boolean) {
+        TodoManager.updateLabelVisibility(label, isVisible)
+        getAllTodo() // Odśwież widok zadań
+    }
+
+    fun toggleLabelVisibility(label: Label, isVisible: Boolean) {
+        label.isLabelVisible = isVisible
+        _todoList.value = _todoList.value // Wymusza odświeżenie LiveData
     }
 
 

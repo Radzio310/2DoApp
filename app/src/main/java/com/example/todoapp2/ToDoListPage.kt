@@ -262,9 +262,13 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             val filteredList = todoList?.filter { todo ->
                 val isTaskVisible = showTasks && !todo.isProject
                 val isProjectVisible = showProjects && todo.isProject
-                val isLabelSelected = selectedLabels.isEmpty() || selectedLabels.contains(todo.label)
-                (isTaskVisible || isProjectVisible) && isLabelSelected
+                val isLabelVisible = todo.label?.isLabelVisible ?: true // Uwzględnij widoczność etykiety
+
+                // Uwzględnij widoczność zadań/projektów na podstawie ich etykiety
+                isLabelVisible && (isTaskVisible || isProjectVisible)
             }
+
+
 
 
             LazyColumn(
@@ -451,6 +455,7 @@ fun CustomBottomBar(viewModel: TodoViewModel,
     // Wyświetl modal edycji widoku, jeśli aktywne
     if (showEditViewModal) {
         EditViewModal(
+            viewModel = viewModel,
             showTasks = showTasks,
             showProjects = showProjects,
             selectedLabels = viewModel.selectedLabels.value.orEmpty().filterNotNull(),
@@ -466,6 +471,7 @@ fun CustomBottomBar(viewModel: TodoViewModel,
 
 @Composable
 fun EditViewModal(
+    viewModel: TodoViewModel,
     showTasks: Boolean,
     showProjects: Boolean,
     selectedLabels: List<Label?>,
@@ -512,10 +518,18 @@ fun EditViewModal(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_task),
+                        contentDescription = "Zadanie",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Gray
+                    )
                     Text("Zadania", color = Color.White, fontSize = 14.sp)
                     Checkbox(
                         checked = showTasks,
-                        onCheckedChange = { onTasksToggle() },
+                        onCheckedChange = {
+                            onTasksToggle()
+                        },
                         colors = CheckboxDefaults.colors(
                             checkedColor = Color(0xFFb08968),
                             uncheckedColor = Color.Gray
@@ -529,6 +543,12 @@ fun EditViewModal(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_project),
+                        contentDescription = "Projekt",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Gray
+                    )
                     Text("Projekty", color = Color.White, fontSize = 14.sp)
                     Checkbox(
                         checked = showProjects,
@@ -546,40 +566,10 @@ fun EditViewModal(
                 Text("Wyświetl kategorie po etykietach", color = Color.White, fontSize = 14.sp)
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
                     content = {
-                        // Checkbox dla "Bez etykiety"
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(4.dp)
-                                        .background(Color.Gray, RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text("Bez etykiety", color = Color.Black, fontSize = 14.sp)
-                                }
-                                Checkbox(
-                                    checked = selectedLabels.contains(null),
-                                    onCheckedChange = { isChecked ->
-                                        onLabelToggle(if (isChecked) null else null)
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFFb08968),
-                                        uncheckedColor = Color.Gray
-                                    )
-                                )
-                            }
-                        }
-
-                        // Checkboxy dla pozostałych etykiet
                         items(availableLabels) { label ->
+                            var isChecked by remember(label.name) { mutableStateOf(label.isLabelVisible) }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -600,9 +590,11 @@ fun EditViewModal(
                                     )
                                 }
                                 Checkbox(
-                                    checked = selectedLabels.contains(label),
-                                    onCheckedChange = { isChecked ->
-                                        onLabelToggle(if (isChecked) label else null)
+                                    checked = isChecked,
+                                    onCheckedChange = { newChecked ->
+                                        isChecked = newChecked // Aktualizacja lokalnego stanu
+                                        viewModel.updateLabelVisibility(label, newChecked)
+                                        viewModel.toggleLabelVisibility(label, newChecked) // Aktualizuj widoczność w ViewModel
                                     },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color(0xFFb08968),
@@ -613,7 +605,6 @@ fun EditViewModal(
                         }
                     }
                 )
-
 
 
                 Spacer(modifier = Modifier.height(16.dp))

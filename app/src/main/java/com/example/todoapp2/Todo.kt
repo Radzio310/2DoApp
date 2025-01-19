@@ -19,6 +19,7 @@ data class Todo(
 
 data class Label(
     val name: String,
-    val color: Int // Kolor w formacie ARGB
+    val color: Int, // Kolor w formacie ARGB
+    var isLabelVisible: Boolean = true
 )
 

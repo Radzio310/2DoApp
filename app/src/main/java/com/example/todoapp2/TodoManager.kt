@@ -109,8 +109,8 @@ object TodoManager {
     // Zarządzanie etykietami
     fun addLabel(name: String, color: Int): Boolean {
         if (labels.any { it.name == name }) return false
-        labels.add(Label(name, color))
-        saveLabels()
+        labels.add(Label(name, color, true)) // Domyślnie nowa etykieta jest widoczna
+        saveLabels() // Zapisz listę etykiet
         return true
     }
 
@@ -122,7 +122,7 @@ object TodoManager {
         saveTodos()
     }
 
-    private fun saveLabels() {
+    fun saveLabels() {
         val json = gson.toJson(labels)
         preferences.edit().putString("labels", json).apply()
     }
@@ -136,6 +136,23 @@ object TodoManager {
             labels.addAll(savedLabels)
         }
     }
+
+    fun updateLabelVisibility(label: Label, isVisible: Boolean) {
+        val existingLabel = labels.find { it.name == label.name }
+        existingLabel?.isLabelVisible = isVisible
+        saveLabels() // Zapisz zmiany widoczności
+
+        // Aktualizacja widoczności zadań
+        todoList.forEach { todo ->
+            if (todo.label?.name == label.name) {
+                todo.label?.isLabelVisible = isVisible
+            }
+        }
+        saveTodos()
+    }
+
+
+
 
     fun removeLabel(label: Label) {
         labels.removeIf { it.name == label.name }
@@ -453,4 +470,3 @@ object TodoManager {
     }
 
 }
-
