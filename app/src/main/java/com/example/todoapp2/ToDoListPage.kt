@@ -671,6 +671,12 @@ fun TodoItem(
                 }
             }
 
+            Spacer(
+                modifier = Modifier.height(
+                    if (item.label != null && item.title.length <= 40) 75.dp else 0.dp
+                )
+            )
+
             // Ikona oznaczenia jako ukończone
             IconButton(onClick = { isAnimatingCompletion = true }) {
                 Icon(
@@ -1218,6 +1224,8 @@ fun ProjectDetailDialog(
     var showAddNotificationDialog by remember { mutableStateOf(false) }
     var areNotificationsDisabled by remember { mutableStateOf(project.areNotificationsDisabled) }
 
+    var showLabelPicker by remember { mutableStateOf(false) }
+
     Dialog(onDismissRequest = {
         project.description = description
         project.deadline = deadline
@@ -1319,6 +1327,25 @@ fun ProjectDetailDialog(
                             )
                         }
                     }
+                }
+
+                LabelSection(
+                    label = project.label,
+                    onEditLabel = { showLabelPicker = true },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                if (showLabelPicker) {
+                    LabelPickerDialog(
+                        currentLabel = project.label,
+                        viewModel = TodoViewModel(),
+                        onLabelSelected = { selectedLabel ->
+                            project.label = selectedLabel // Przypisz wybraną etykietę
+                            showLabelPicker = false
+                        },
+                        onDismiss = {
+                            showLabelPicker = false // Zamknij dialog bez zmian
+                        }
+                    )
                 }
 
                 // Tytuł projektu
@@ -1815,7 +1842,7 @@ fun LabelPickerDialog(
                                 )
                                 IconButton(
                                     onClick = { labels.remove(label); viewModel.removeLabel(label) },
-                                    modifier = Modifier.size(20.dp) // Większa ikona
+                                    modifier = Modifier.size(32.dp) // Większa ikona
                                 ) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.delete),
