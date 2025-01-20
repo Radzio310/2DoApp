@@ -595,6 +595,8 @@ fun EditViewModal(
                                         isChecked = newChecked // Aktualizacja lokalnego stanu
                                         viewModel.updateLabelVisibility(label, newChecked)
                                         viewModel.toggleLabelVisibility(label, newChecked) // Aktualizuj widoczność w ViewModel
+                                        onTasksToggle()
+                                        onTasksToggle()
                                     },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color(0xFFb08968),
