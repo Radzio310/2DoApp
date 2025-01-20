@@ -19,6 +19,7 @@ object TodoManager {
     private var lastGeneratedId = 0;
     private val labels = mutableListOf<Label>() // Lista dostępnych etykiet
 
+
     fun init(context: Context) {
         preferences = context.getSharedPreferences("todo_prefs", Context.MODE_PRIVATE)
         loadLastGeneratedId() // Załaduj ID z pamięci
@@ -137,14 +138,14 @@ object TodoManager {
         }
     }
 
-    fun updateLabelVisibility(label: Label, isVisible: Boolean) {
-        val existingLabel = labels.find { it.name == label.name }
+    fun updateLabelVisibility(label: Label?, isVisible: Boolean) {
+        val existingLabel = labels.find { it.name == label!!.name }
         existingLabel?.isLabelVisible = isVisible
         saveLabels() // Zapisz zmiany widoczności
 
         // Aktualizacja widoczności zadań
         todoList.forEach { todo ->
-            if (todo.label?.name == label.name) {
+            if (todo.label?.name == label!!.name) {
                 todo.label?.isLabelVisible = isVisible
             }
         }

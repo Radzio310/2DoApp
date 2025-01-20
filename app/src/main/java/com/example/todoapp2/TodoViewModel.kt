@@ -56,10 +56,11 @@ class TodoViewModel : ViewModel() {
         }
     }
 
-    fun updateLabelVisibility(label: Label, isVisible: Boolean) {
+    fun updateLabelVisibility(label: Label?, isVisible: Boolean) {
         TodoManager.updateLabelVisibility(label, isVisible)
         getAllTodo() // Odśwież widok zadań
     }
+
 
     fun toggleLabelVisibility(label: Label, isVisible: Boolean) {
         label.isLabelVisible = isVisible

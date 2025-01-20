@@ -45,6 +45,7 @@ import com.example.todoapp2.TodoManager
 import com.example.todoapp2.TodoManager.generateUniqueId
 import com.example.todoapp2.TodoManager.removeTodoDeadline
 import com.example.todoapp2.TodoManager.saveProjectState
+import com.example.todoapp2.TodoManager.updateLabelVisibility
 import com.example.todoapp2.TodoManager.updateTodoDeadline
 import com.example.todoapp2.TodoViewModel
 import java.text.SimpleDateFormat
@@ -63,12 +64,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     // Stan dla filtrowania
     var showTasks by remember { mutableStateOf(true) } // Pokaż zadania domyślnie
     var showProjects by remember { mutableStateOf(true) } // Pokaż projekty domyślnie
+    var showWithoutLabel by remember { mutableStateOf(true) } // Domyślnie pokaż zadania bez etykiety
 
     var selectedTask by remember { mutableStateOf<Todo?>(null) }
 
     var todoToDelete by remember { mutableStateOf<Todo?>(null) }
 
-    val selectedLabels = remember { mutableStateListOf<Label?>() }
 
 
 
@@ -262,9 +263,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             val filteredList = todoList?.filter { todo ->
                 val isTaskVisible = showTasks && !todo.isProject
                 val isProjectVisible = showProjects && todo.isProject
-                val isLabelVisible = todo.label?.isLabelVisible ?: true // Uwzględnij widoczność etykiety
+                val isLabelVisible = todo.label?.isLabelVisible ?: showWithoutLabel // Uwzględnij widoczność etykiety
 
-                // Uwzględnij widoczność zadań/projektów na podstawie ich etykiety
                 isLabelVisible && (isTaskVisible || isProjectVisible)
             }
 
@@ -320,11 +320,11 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             viewModel = TodoViewModel(),
             showTasks = showTasks,
             showProjects = showProjects,
-            selectedLabels = viewModel.selectedLabels.value ?: emptyList(), // Użycie wartości z ViewModel
+            showWithoutLabel = showWithoutLabel,
             availableLabels = viewModel.labels.value ?: emptyList(), // Użycie dostępnych etykiet
             onTasksToggle = { showTasks = !showTasks },
             onProjectsToggle = { showProjects = !showProjects },
-            onLabelToggle = { label -> viewModel.toggleLabel(label) } // Wywołanie metody z ViewModel
+            onShowWithoutLabelToggle = { showWithoutLabel = !showWithoutLabel }
         )
 
     }
@@ -384,11 +384,11 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 fun CustomBottomBar(viewModel: TodoViewModel,
     showTasks: Boolean,
     showProjects: Boolean,
-    selectedLabels: List<Label?>,
+    showWithoutLabel: Boolean,
     availableLabels: List<Label>,
     onTasksToggle: () -> Unit,
     onProjectsToggle: () -> Unit,
-    onLabelToggle: (Label) -> Unit,
+    onShowWithoutLabelToggle: () -> Unit
 ) {
     var showEditViewModal by remember { mutableStateOf(false) }
 
@@ -458,12 +458,12 @@ fun CustomBottomBar(viewModel: TodoViewModel,
             viewModel = viewModel,
             showTasks = showTasks,
             showProjects = showProjects,
-            selectedLabels = viewModel.selectedLabels.value.orEmpty().filterNotNull(),
+            showWithoutLabel = showWithoutLabel,
             availableLabels = availableLabels,
             onClose = { showEditViewModal = false },
             onTasksToggle = onTasksToggle,
             onProjectsToggle = onProjectsToggle,
-            onLabelToggle = { label -> viewModel.toggleLabel(label) }
+            onShowWithoutLabelToggle = onShowWithoutLabelToggle
         )
     }
 }
@@ -474,12 +474,12 @@ fun EditViewModal(
     viewModel: TodoViewModel,
     showTasks: Boolean,
     showProjects: Boolean,
-    selectedLabels: List<Label?>,
+    showWithoutLabel: Boolean,
     availableLabels: List<Label>,
     onClose: () -> Unit,
     onTasksToggle: () -> Unit,
     onProjectsToggle: () -> Unit,
-    onLabelToggle: (Label?) -> Unit // Zaktualizowano typ, aby obsługiwać "Bez etykiety"
+    onShowWithoutLabelToggle: () -> Unit
 ) {
     Dialog(onDismissRequest = { onClose() }) {
         Surface(
@@ -566,7 +566,46 @@ fun EditViewModal(
                 Text("Wyświetl kategorie po etykietach", color = Color.White, fontSize = 14.sp)
 
                 LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight(0.5f),
                     content = {
+                        // Opcja "BEZ ETYKIETY"
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp), // Dostosowano odstępy do pozostałych checkboxów
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .background(Color.Transparent, RoundedCornerShape(8.dp))
+                                        .border(2.dp, Color(0xFFb08968), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp), // Dopasowanie paddingu
+                                    verticalAlignment = Alignment.CenterVertically // Zapewnienie wyrównania pionowego
+                                ) {
+                                    Text(
+                                        text = "BEZ ETYKIETY",
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Checkbox(
+                                    checked = showWithoutLabel,
+                                    onCheckedChange = {
+                                        onShowWithoutLabelToggle()
+                                        onTasksToggle()
+                                        onTasksToggle()
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFFb08968),
+                                        uncheckedColor = Color.Gray
+                                    )
+                                )
+                            }
+                        }
+
                         items(availableLabels) { label ->
                             var isChecked by remember(label.name) { mutableStateOf(label.isLabelVisible) }
 
@@ -592,9 +631,8 @@ fun EditViewModal(
                                 Checkbox(
                                     checked = isChecked,
                                     onCheckedChange = { newChecked ->
-                                        isChecked = newChecked // Aktualizacja lokalnego stanu
-                                        viewModel.updateLabelVisibility(label, newChecked)
-                                        viewModel.toggleLabelVisibility(label, newChecked) // Aktualizuj widoczność w ViewModel
+                                        isChecked = newChecked
+                                        updateLabelVisibility(label, newChecked)
                                         onTasksToggle()
                                         onTasksToggle()
                                     },
@@ -1895,9 +1933,9 @@ fun LabelPickerDialog(
     val context = LocalContext.current
 
     val availableColors = listOf(
-        Color(0xFFa2d2ff), Color(0xFFcdb4db), Color(0xFFffc8dd), Color(0xFF2a9d8f),
-        Color(0xFF03045e), Color(0xFFc7f9cc), Color(0xFFef233c), Color(0xFFffbf69),
-        Color(0xFF9c6644), Color(0xFFffbc42), Color(0xFFa5a5a5), Color(0xFFbb8588)
+        Color(0xFFa2d2ff), Color(0xFFbdb2ff), Color(0xFFffc8dd), Color(0xFF2a9d8f),
+        Color(0xFF219ebc), Color(0xFFc7f9cc), Color(0xFFef233c), Color(0xFFffd166),
+        Color(0xFF9c6644), Color(0xFFff9100), Color(0xFFa5a5a5), Color(0xFFbb8588)
     )
 
     if (isCreatingLabel) {

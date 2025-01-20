@@ -14,7 +14,8 @@ data class Todo(
     var order: Int = 0, // kolejność zadań
     var notifications: MutableList<Long> = mutableListOf(), // Lista powiadomień (czas w milisekundach przed deadline)
     var areNotificationsDisabled: Boolean = false, // Czy powiadomienia są wyłączone
-    var label: Label? = null // Dodane pole na etykietę
+    var label: Label? = null, // Dodane pole na etykietę
+    var isVisible: Boolean = true
 )
 
 data class Label(
