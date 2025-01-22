@@ -631,7 +631,7 @@ fun EditViewModal(
                                 Checkbox(
                                     checked = isChecked,
                                     onCheckedChange = { newChecked ->
-                                        isChecked = newChecked
+                                        isChecked = newChecked //aktualizacja checkboxa
                                         updateLabelVisibility(label, newChecked)
                                         onTasksToggle()
                                         onTasksToggle()
@@ -883,7 +883,7 @@ fun TodoItem(
                 item.deadline?.let {
                     Text(
                         text = "Deadline: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ENGLISH).format(it)}",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         color = Color(0xFFf4f0bb)
                     )
                 }
