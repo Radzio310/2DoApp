@@ -45,10 +45,10 @@ object NotificationScheduler {
         offsetMillis: Long,
         tag: String
     ) {
-        val workRequest = androidx.work.OneTimeWorkRequestBuilder<TaskReminderWorker>()
+        val workRequest = OneTimeWorkRequestBuilder<TaskReminderWorker>()
             .setInitialDelay(offsetMillis, TimeUnit.MILLISECONDS)
             .setInputData(
-                androidx.work.workDataOf(
+                workDataOf(
                     "title" to title,
                     "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
                     "taskId" to taskId
@@ -57,7 +57,7 @@ object NotificationScheduler {
             .addTag(tag) // Dodanie unikalnego tagu
             .build()
 
-        androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+        WorkManager.getInstance(context).enqueue(workRequest)
     }
 
 
@@ -77,7 +77,7 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "daily_summary",
-            ExistingPeriodicWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }

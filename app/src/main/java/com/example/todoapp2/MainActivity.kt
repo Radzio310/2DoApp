@@ -81,28 +81,26 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    fun createNotificationChannels(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channels = listOf(
-                NotificationChannel(
-                    "task_reminders",
-                    "Task Reminders",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Reminders for upcoming tasks and projects"
-                },
-                NotificationChannel(
-                    "daily_summary",
-                    "Daily Summary",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "Summary of tasks and projects for the day"
-                }
-            )
+    private fun createNotificationChannels(context: Context) {
+        val channels = listOf(
+            NotificationChannel(
+                "task_reminders",
+                "Task Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Reminders for upcoming tasks and projects"
+            },
+            NotificationChannel(
+                "daily_summary",
+                "Daily Summary",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Summary of tasks and projects for the day"
+            }
+        )
 
-            val notificationManager = context.getSystemService(NotificationManager::class.java)
-            notificationManager?.createNotificationChannels(channels)
-        }
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
+        notificationManager?.createNotificationChannels(channels)
     }
 
 }

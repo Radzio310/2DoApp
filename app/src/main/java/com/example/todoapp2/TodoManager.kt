@@ -2,21 +2,17 @@ package com.example.todoapp2
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import com.google.gson.Gson
-import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.Date
-import java.util.Locale
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 object TodoManager {
     private lateinit var preferences: SharedPreferences
     private val gson = Gson()
     private val todoList = mutableListOf<Todo>()
-    private var lastGeneratedId = 0;
+    private var lastGeneratedId = 0
     private val labels = mutableListOf<Label>() // Lista dostępnych etykiet
 
 
@@ -30,14 +26,6 @@ object TodoManager {
 
     fun getAllTodo(): List<Todo> {
         return todoList.sortedWith(compareBy<Todo> { !it.isCompleted }.thenBy { it.order })
-    }
-
-    fun updateOrder(id: Int, newOrder: Int) {
-        val todo = todoList.find { it.id == id }
-        todo?.let {
-            it.order = newOrder
-            saveTodos()
-        }
     }
 
     fun swapOrder(firstId: Int, secondId: Int) {
@@ -83,7 +71,7 @@ object TodoManager {
     }
 
 
-    fun fixDuplicateOrders() {
+    private fun fixDuplicateOrders() {
         val seenOrders = mutableSetOf<Int>() // Zestaw przechowujący unikalne wartości order
         var maxOrder = todoList.maxOfOrNull { it.order } ?: 0 // Znajdź maksymalne order w liście
 
@@ -117,13 +105,7 @@ object TodoManager {
 
     fun getLabels(): List<Label> = labels
 
-    fun assignLabelToTodo(todoId: Int, label: Label?) {
-        val todo = todoList.find { it.id == todoId }
-        todo?.label = label
-        saveTodos()
-    }
-
-    fun saveLabels() {
+    private fun saveLabels() {
         val json = gson.toJson(labels)
         preferences.edit().putString("labels", json).apply()
     }
@@ -209,7 +191,7 @@ object TodoManager {
     }
 
 
-    public fun scheduleTaskNotifications(context: Context, todo: Todo) {
+    fun scheduleTaskNotifications(context: Context, todo: Todo) {
         val deadline = todo.deadline // Przechowaj wartość lokalnie, aby uniknąć problemu z castingiem
         if (deadline != null) {
             NotificationScheduler.scheduleTaskReminder(
@@ -258,7 +240,7 @@ object TodoManager {
     fun markAsCompleted(context: Context, id: Int) {
         val todo = todoList.find { it.id == id }
         todo?.let {
-            val wasCompleted = it.isCompleted
+            it.isCompleted
             it.isCompleted = !it.isCompleted
             saveTodos()
 
@@ -298,40 +280,8 @@ object TodoManager {
     }
 
 
-    fun getProjectById(id: Int): Todo? {
+    private fun getProjectById(id: Int): Todo? {
         return todoList.find { it.id == id && it.isProject }
-    }
-
-    fun addTaskToProject(projectId: Int, taskTitle: String, deadline: Date? = null) {
-        val project = getProjectById(projectId)
-        project?.let {
-            val task = Todo(
-                id = generateUniqueId(),
-                title = taskTitle,
-                createdAt = Date.from(Instant.now()),
-                deadline = deadline
-            )
-            it.tasks.add(task)
-            saveTodos()
-        } ?: throw IllegalArgumentException("Project with ID $projectId not found")
-    }
-
-    fun editProject(projectId: Int, newTitle: String, newDescription: String?, newDeadline: Date?) {
-        val project = getProjectById(projectId)
-        project?.let {
-            it.title = newTitle
-            it.deadline = newDeadline
-            it.description = newDescription
-            initializeDefaultValues(it) // Ustaw domyślne wartości dla projektu
-            saveTodos()
-        }
-    }
-
-
-    fun deleteTaskFromProject(projectId: Int, taskId: Int) {
-        val project = getProjectById(projectId)
-        project?.tasks?.removeIf { it.id == taskId }
-        saveTodos()
     }
 
     fun markTaskAsCompleted(projectId: Int, taskId: Int, newCompletionState: Boolean) {
@@ -369,6 +319,7 @@ object TodoManager {
 
 
     fun updateProject(
+        context: Context,
         projectId: Int,
         newDescription: String?,
         newDeadline: Date?,
@@ -397,10 +348,11 @@ object TodoManager {
             if (it.tasks.isEmpty()) {
                 it.isCompleted = false // If no tasks, project is not complete
             } else if (it.tasks.all { task -> task.isCompleted }) {
-                if (onProjectCompletionDecision) {
-                    // Logic to decide what happens when all tasks are completed (e.g., finalizing the project)
-                }
+            if (onProjectCompletionDecision) {
+                Toast.makeText(context, "PROJEKT UKOŃCZONY! Gratulacje🎉", Toast.LENGTH_SHORT).show()
             }
+        }
+
 
             // Save the updated project and the tasks list
             saveProjectState(it)
@@ -448,26 +400,16 @@ object TodoManager {
 
 
     private fun initializeDefaultValues(todo: Todo) {
-        todo.notifications = todo.notifications ?: mutableListOf() // Ustaw puste powiadomienia, jeśli brak
-        todo.areNotificationsDisabled = todo.areNotificationsDisabled ?: false // Domyślnie powiadomienia włączone
-        todo.tasks = todo.tasks ?: mutableListOf() // Dla projektów ustaw pustą listę zadań
+        todo.notifications = todo.notifications // Ustaw puste powiadomienia, jeśli brak
+        todo.areNotificationsDisabled =
+            todo.areNotificationsDisabled // Domyślnie powiadomienia włączone
+        todo.tasks = todo.tasks // Dla projektów ustaw pustą listę zadań
         todo.description = todo.description ?: "" // Opis domyślnie pusty
     }
 
     fun saveProjectState(project: Todo) {
         val json = gson.toJson(project)
         preferences.edit().putString("project_${project.id}", json).apply()
-    }
-
-    fun loadProjectState(projectId: Int): Todo? {
-        val json = preferences.getString("project_${projectId}", null)
-        return if (json != null) {
-            val project = gson.fromJson(json, Todo::class.java)
-            initializeDefaultValues(project) // Inicjalizacja domyślnych wartości
-            project
-        } else {
-            null
-        }
     }
 
 }

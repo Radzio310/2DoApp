@@ -4,8 +4,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -273,7 +271,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
             LazyColumn(
                 content = {
-                    itemsIndexed(filteredList ?: emptyList()) { index, item ->
+                    itemsIndexed(filteredList ?: emptyList()) { _, item ->
                         AnimatedVisibility(
                             visible = true, // Elementy zawsze widoczne na liście
                             enter = slideInVertically(initialOffsetY = { it }),
@@ -334,25 +332,22 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             project = project,
             onClose = {
                 showModal = null
-                viewModel.updateProject(project, false)
+                viewModel.updateProject(context, project, false)
                 saveProjectState(project)
                 Toast.makeText(context, "Zmiany zapisane", Toast.LENGTH_SHORT).show()
             },
             onSave = {
                 // Zapisanie zmian projektu w ViewModel
-                viewModel.updateProject(project, false)
+                viewModel.updateProject(context, project, false)
 
                 // Zapisanie stanu projektu w pamięci
                 saveProjectState(project)
 
                 showModal = null
             },
-            onEdit = {
-
-            }
         )
     }
-    selectedTask?.let { task ->
+    selectedTask?.let { _ ->
         TaskDetailDialog(
             task = selectedTask!!,
             onClose = { selectedTask = null },
@@ -783,7 +778,7 @@ fun TodoItem(
             item.isProject -> Color(0xFFD5BDAD)
             item.isCompleted -> Color(0xFF2b9348)
             else -> Color.Transparent
-        }
+        }, label = ""
     )
 
     val targetBorderColor = when {
@@ -892,13 +887,15 @@ fun TodoItem(
                 if (item.isProject) {
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = if (item.tasks.isNotEmpty()) {
-                            val completedTasks = item.tasks.count { it.isCompleted }
-                            completedTasks.toFloat() / item.tasks.size
-                        } else 0f,
+                        progress = {
+                            if (item.tasks.isNotEmpty()) {
+                                val completedTasks = item.tasks.count { it.isCompleted }
+                                completedTasks.toFloat() / item.tasks.size
+                            } else 0f
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         color = Color(0xFF2b9348),
-                        trackColor = Color(0xFFb08968)
+                        trackColor = Color(0xFFb08968),
                     )
                 }
             }
@@ -1202,7 +1199,6 @@ fun TaskDetailDialog(
             }
             if (showLabelPicker) {
                 LabelPickerDialog(
-                    currentLabel = task.label, // Dla TaskDetailDialog
                     viewModel = TodoViewModel(),
                     onLabelSelected = { selectedLabel ->
                         task.label = selectedLabel // Zapisz wybraną etykietę
@@ -1439,7 +1435,6 @@ fun ProjectDetailDialog(
     project: Todo,
     onClose: () -> Unit,
     onSave: (Todo) -> Unit,
-    onEdit: () -> Unit,
 ) {
     var description by remember { mutableStateOf(project.description ?: "") }
     var isEditingDescription by remember { mutableStateOf(false) }
@@ -1449,8 +1444,8 @@ fun ProjectDetailDialog(
     val oldDeadline = deadline
     val oldNotifications = project.notifications
 
-    val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks ?: emptyList()) } }
-    val completedTasks = tasks.count { it.isCompleted }
+    val tasks = remember { mutableStateListOf<Todo>().apply { addAll(project.tasks) } }
+    val completedTasks = tasks.count(Todo::isCompleted)
     val progress = if (tasks.isNotEmpty()) (completedTasks.toFloat() / tasks.size.toFloat()) * 100 else 0f
 
     var showAddNotificationDialog by remember { mutableStateOf(false) }
@@ -1568,7 +1563,6 @@ fun ProjectDetailDialog(
                 )
                 if (showLabelPicker) {
                     LabelPickerDialog(
-                        currentLabel = project.label,
                         viewModel = TodoViewModel(),
                         onLabelSelected = { selectedLabel ->
                             project.label = selectedLabel // Przypisz wybraną etykietę
@@ -1716,7 +1710,7 @@ fun ProjectDetailDialog(
                                     if (index != -1) {
                                         val updatedTask = task.copy(
                                             isCompleted = !task.isCompleted,
-                                            notifications = task.notifications ?: mutableListOf() // Upewnij się, że nie jest null
+                                            notifications = task.notifications
                                         )
                                         tasks[index] = updatedTask
                                     }
@@ -1795,7 +1789,9 @@ fun ProjectDetailDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(text = "Postęp: $completedTasks / ${tasks.size}", fontSize = 16.sp)
-                LinearProgressIndicator(progress = progress / 100f)
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -1921,7 +1917,6 @@ fun LabelSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LabelPickerDialog(
-    currentLabel: Label?,
     viewModel: TodoViewModel,
     onLabelSelected: (Label?) -> Unit,
     onDismiss: () -> Unit
@@ -1973,7 +1968,7 @@ fun LabelPickerDialog(
                         value = newLabelName,
                         onValueChange = { newLabelName = it.take(24) },
                         label = { Text("Nazwa etykiety", color = Color.Gray) },
-                        colors = TextFieldDefaults.textFieldColors(containerColor = Color.Transparent)
+                        colors = textFieldColors(containerColor = Color.Transparent)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))

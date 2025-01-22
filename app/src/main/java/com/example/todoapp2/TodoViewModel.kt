@@ -1,7 +1,6 @@
 package com.example.todoapp2
 
 import android.content.Context
-import androidx.compose.runtime.Composable
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -14,7 +13,6 @@ class TodoViewModel : ViewModel() {
     private var _labels = MutableLiveData<List<Label>>()
     val labels: LiveData<List<Label>> = _labels
     private var _selectedLabels = MutableLiveData<List<Label?>>()
-    val selectedLabels: LiveData<List<Label?>> = _selectedLabels
 
     init {
         getAllTodo() // Załaduj listę przy starcie aplikacji
@@ -25,7 +23,7 @@ class TodoViewModel : ViewModel() {
     }
 
 
-    fun getAllTodo() {
+    private fun getAllTodo() {
         _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
     }
 
@@ -36,38 +34,11 @@ class TodoViewModel : ViewModel() {
     }
 
 
-    fun assignLabel(todoId: Int, label: Label?) {
-        TodoManager.assignLabelToTodo(todoId, label)
-        getAllTodo()
-    }
-
     fun removeLabel(label: Label) {
         TodoManager.removeLabel(label)
         loadLabels() // Odśwież listę etykiet
         getAllTodo() // Odśwież listę zadań
     }
-
-    fun toggleLabel(label: Label?) {
-        val currentSelection = _selectedLabels.value.orEmpty()
-        _selectedLabels.value = if (currentSelection.contains(label)) {
-            currentSelection - label // Usuń etykietę z widoku
-        } else {
-            currentSelection + label // Dodaj etykietę do widoku
-        }
-    }
-
-    fun updateLabelVisibility(label: Label?, isVisible: Boolean) {
-        TodoManager.updateLabelVisibility(label, isVisible)
-        getAllTodo() // Odśwież widok zadań
-    }
-
-
-    fun toggleLabelVisibility(label: Label, isVisible: Boolean) {
-        label.isLabelVisible = isVisible
-        _todoList.value = _todoList.value // Wymusza odświeżenie LiveData
-    }
-
-
 
 
     private fun loadLabels() {
@@ -89,49 +60,15 @@ class TodoViewModel : ViewModel() {
         getAllTodo()
     }
 
-    fun updateProject(updatedProject: Todo, onProjectCompletionDecision: Boolean) {
+    fun updateProject(context: Context, updatedProject: Todo, onProjectCompletionDecision: Boolean) {
         TodoManager.updateProject(
+            context,
             updatedProject.id,
             updatedProject.description,
             updatedProject.deadline,
             updatedProject.tasks,
             onProjectCompletionDecision
         )
-        getAllTodo() // Odśwież listę
-    }
-
-    fun addTaskToProject(projectId: Int, task: Todo) {
-        TodoManager.addTaskToProject(projectId, task.title, task.deadline)
-        getAllTodo()
-    }
-
-    fun editProject(projectId: Int, newTitle: String, newDescription: String?, newDeadline: Date?) {
-        TodoManager.editProject(projectId, newTitle, newDescription, newDeadline)
-        getAllTodo()
-    }
-
-    fun deleteTaskFromProject(projectId: Int, taskId: Int) {
-        TodoManager.deleteTaskFromProject(projectId, taskId)
-        getAllTodo()
-    }
-
-    fun saveProjectState(project: Todo) {
-        TodoManager.saveProjectState(project)
-        getAllTodo() // Odświeżenie listy po zapisaniu
-    }
-
-    fun updateOrder(id: Int, newOrder: Int) {
-        TodoManager.updateOrder(id, newOrder)
-        getAllTodo()
-    }
-
-    fun updateTodoDeadline(context: Context, todo: Todo, newDeadline: Date?) {
-        TodoManager.updateTodoDeadline(context, todo, newDeadline)
-        getAllTodo()
-    }
-
-    fun removeTodoDeadline(context: Context, todoId: Int) {
-        TodoManager.removeTodoDeadline(context, todoId)
         getAllTodo()
     }
 
@@ -161,7 +98,7 @@ class TodoViewModel : ViewModel() {
             it.title = updatedTodo.title
             it.deadline = updatedTodo.deadline
             it.areNotificationsDisabled = updatedTodo.areNotificationsDisabled
-            it.notifications = updatedTodo.notifications.toMutableList() ?: mutableListOf()
+            it.notifications = updatedTodo.notifications.toMutableList()
             TodoManager.saveTodos()
 
             if(it.deadline == null || it.areNotificationsDisabled) {
