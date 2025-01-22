@@ -191,9 +191,10 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                     .align(Alignment.CenterVertically)
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_add),
+                    painter = painterResource(id = R.drawable.ic_add_task),
                     contentDescription = "Add Task",
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -207,7 +208,11 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                 Text(text = "Deadline", fontSize = 12.sp)
                 Checkbox(
                     checked = hasDeadline,
-                    onCheckedChange = { hasDeadline = it }
+                    onCheckedChange = { hasDeadline = it },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFFb08968),
+                        uncheckedColor = Color.Gray
+                    )
                 )
             }
 
@@ -1330,7 +1335,7 @@ fun AddNotificationDialog(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_add),
                             contentDescription = "Zwiększ",
-                            tint = Color(0xFFb08968)
+                            tint = Color(0xFFb08968),
                         )
                     }
                 }
