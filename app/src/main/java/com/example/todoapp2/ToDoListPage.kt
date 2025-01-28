@@ -204,7 +204,7 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -219,32 +219,58 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Zadanie", fontSize = 12.sp)
-                IconToggleButton(
-                    checked = !isProject,
-                    onCheckedChange = { isProject = !it },
-                    modifier = Modifier.padding(start = 8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Ikona dla zadania
+                IconButton(
+                    onClick = { isProject = false }
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_task),
-                        contentDescription = "Task",
+                        contentDescription = "Zadanie",
                         tint = if (!isProject) Color(0xFFb08968) else Color.Gray
                     )
                 }
 
-                Text(text = "Projekt", fontSize = 12.sp)
-                IconToggleButton(
-                    checked = isProject,
-                    onCheckedChange = { isProject = it },
-                    modifier = Modifier.padding(start = 8.dp)
+                // Ikona zmieniająca się zależnie od wybranego trybu
+                Icon(
+                    painter = painterResource(id = if (!isProject) R.drawable.ic_switch_project else R.drawable.ic_switch_task),
+                    contentDescription = if (isProject) "Projekt" else "Zadanie",
+                    tint = Color(0xFFddb892),
+                    modifier = Modifier
+                        .padding(horizontal = 2.dp)
+                        .size(32.dp) // Rozmiar ikony między przełącznikami
+                )
+
+                // Ikona dla projektu
+                IconButton(
+                    onClick = { isProject = true }
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_project),
-                        contentDescription = "Project",
+                        contentDescription = "Projekt",
                         tint = if (isProject) Color(0xFFD5BDAD) else Color.Gray
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Pole tekstowe ze stałą szerokością
+                Text(
+                    text = if (isProject) "Projekt" else "Zadanie",
+                    fontSize = 16.sp,
+                    color = Color.White,
+                    modifier = Modifier
+                        .width(125.dp) // Stała szerokość dla estetyki
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp)),
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
@@ -412,6 +438,22 @@ fun CustomBottomBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Ikona kalendarza po lewej
+        IconButton(
+            onClick = { },
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1C1C1E))
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_calendar_view),
+                contentDescription = "Kalendarz",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
         // Przycisk "Wyświetl" z ikoną
         Button(
             onClick = { showEditViewModal = true },
@@ -428,22 +470,6 @@ fun CustomBottomBar(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Wyświetl", fontSize = 14.sp, color = Color.White)
-        }
-
-        // Ikona kalendarza na środku
-        IconButton(
-            onClick = { },
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1C1C1E))
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_calendar_view),
-                contentDescription = "Kalendarz",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
         }
 
         // Ikona użytkownika po prawej stronie

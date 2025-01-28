@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -247,8 +248,10 @@ fun StatisticsScreen(onClose: () -> Unit) {
             ) {
                 // Nagłówek z logo
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -257,17 +260,14 @@ fun StatisticsScreen(onClose: () -> Unit) {
                         modifier = Modifier.size(48.dp),
                         tint = Color.Unspecified
                     )
+                    Text(
+                        text = "Statystyki użytkownika",
+                        fontSize = 24.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Tytuł sekcji
-                Text(
-                    text = "Statystyki użytkownika",
-                    fontSize = 24.sp,
-                    color = Color.White,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -567,6 +567,7 @@ fun ProgressRow(
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
+        // Nagłówek z etykietą i wartością postępu
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -586,23 +587,28 @@ fun ProgressRow(
 
         Spacer(modifier = Modifier.height(4.dp))
 
+        // Pasek postępu z warunkowym tłem
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(16.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFb08968)) // Tło paska
+                .border(2.dp, Color(0xFFb08968), RoundedCornerShape(8.dp)) // Brązowa ramka
+                .background(if (total == 0) Color.Transparent else Color(0xFFb08968)) // Przezroczysty lub brązowy
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(progress)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2b9348)) // Pasek postępu
-            )
+            if (total > 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF2b9348)) // Zielony pasek postępu
+                )
+            }
         }
     }
 }
+
 
 
 fun formatDate(date: Date): String {
@@ -614,16 +620,252 @@ fun formatDate(date: Date): String {
 
 @Composable
 fun SettingsScreen(onClose: () -> Unit) {
+    // Animacja wejścia i wyjścia
+    AnimatedVisibility(
+        visible = true,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+    ) {
+        // Zablokowanie interakcji z elementami pod ekranem
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF121212))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            if (dragAmount > 0) onClose()
+                        }
+                    )
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Nagłówek z logo i nazwą aplikacji
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Logo aplikacji",
+                        modifier = Modifier.size(48.dp),
+                        tint = Color.Unspecified
+                    )
+                    Text(
+                        text = "Ustawienia aplikacji",
+                        fontSize = 24.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Główna treść na środku ekranu
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Tutaj już niedługo będą ustawienia użytkownika",
+                        fontSize = 20.sp,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Przycisk zamknięcia w prawym dolnym rogu
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(64.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_hide),
+                    contentDescription = "Zamknij ustawienia",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+    }
 }
+
 
 @Composable
 fun GoalsScreen(onClose: () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+    ) {
+        // Zablokowanie interakcji z elementami pod ekranem
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF121212))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            if (dragAmount > 0) onClose()
+                        }
+                    )
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Nagłówek z logo i nazwą aplikacji
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Logo aplikacji",
+                        modifier = Modifier.size(48.dp),
+                        tint = Color.Unspecified
+                    )
+                    Text(
+                        text = "Twoje cele",
+                        fontSize = 24.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Główna treść na środku ekranu
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Tutaj już niedługo będą Twoje cele",
+                        fontSize = 20.sp,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Przycisk zamknięcia w prawym dolnym rogu
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(64.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_hide),
+                    contentDescription = "Zamknij cele",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable
 fun NotesScreen(onClose: () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+    ) {
+        // Zablokowanie interakcji z elementami pod ekranem
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF121212))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount ->
+                            if (dragAmount > 0) onClose()
+                        }
+                    )
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Nagłówek z logo i nazwą aplikacji
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Logo aplikacji",
+                        modifier = Modifier.size(48.dp),
+                        tint = Color.Unspecified
+                    )
+                    Text(
+                        text = "Moduł notatek",
+                        fontSize = 24.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Główna treść na środku ekranu
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Tutaj już niedługo będzie moduł notatek użytkownika",
+                        fontSize = 20.sp,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Przycisk zamknięcia w prawym dolnym rogu
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(64.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_hide),
+                    contentDescription = "Zamknij notatki",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+    }
 }
 
