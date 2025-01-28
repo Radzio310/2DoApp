@@ -46,6 +46,7 @@ import com.example.todoapp2.TodoManager.saveProjectState
 import com.example.todoapp2.TodoManager.updateLabelVisibility
 import com.example.todoapp2.TodoManager.updateTodoDeadline
 import com.example.todoapp2.TodoViewModel
+import com.example.todoapp2.UserScreen
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -67,6 +68,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     var selectedTask by remember { mutableStateOf<Todo?>(null) }
 
     var todoToDelete by remember { mutableStateOf<Todo?>(null) }
+
+    var isUserScreenVisible by remember { mutableStateOf(false) }
 
 
 
@@ -327,7 +330,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             availableLabels = viewModel.labels.value ?: emptyList(), // Użycie dostępnych etykiet
             onTasksToggle = { showTasks = !showTasks },
             onProjectsToggle = { showProjects = !showProjects },
-            onShowWithoutLabelToggle = { showWithoutLabel = !showWithoutLabel }
+            onShowWithoutLabelToggle = { showWithoutLabel = !showWithoutLabel },
+            onUserScreenToggle = { isUserScreenVisible = true }
         )
 
     }
@@ -377,18 +381,25 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
         )
     }
 
+    UserScreen(
+        isVisible = isUserScreenVisible,
+        onClose = { isUserScreenVisible = false } // Zamyka ekran po naciśnięciu strzałki
+    )
+
 
 }
 
 @Composable
-fun CustomBottomBar(viewModel: TodoViewModel,
+fun CustomBottomBar(
+    viewModel: TodoViewModel,
     showTasks: Boolean,
     showProjects: Boolean,
     showWithoutLabel: Boolean,
     availableLabels: List<Label>,
     onTasksToggle: () -> Unit,
     onProjectsToggle: () -> Unit,
-    onShowWithoutLabelToggle: () -> Unit
+    onShowWithoutLabelToggle: () -> Unit,
+    onUserScreenToggle: () -> Unit
 ) {
     var showEditViewModal by remember { mutableStateOf(false) }
 
@@ -437,14 +448,14 @@ fun CustomBottomBar(viewModel: TodoViewModel,
 
         // Ikona użytkownika po prawej stronie
         IconButton(
-            onClick = { },
+            onClick = onUserScreenToggle, // Ustaw widoczność com.example.todoapp2.UserScreen na true
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF1C1C1E))
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_user), // Ikona użytkownika
+                painter = painterResource(id = R.drawable.ic_user),
                 contentDescription = "Użytkownik",
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
@@ -1939,6 +1950,7 @@ fun LabelPickerDialog(
     )
 
     if (isCreatingLabel) {
+        // Dialog tworzenia etykiety
         Dialog(onDismissRequest = { isCreatingLabel = false }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -1949,7 +1961,8 @@ fun LabelPickerDialog(
                     .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp))
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
@@ -2023,6 +2036,7 @@ fun LabelPickerDialog(
             }
         }
     } else {
+        // Dialog wyboru etykiety
         Dialog(onDismissRequest = { onDismiss() }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -2053,39 +2067,47 @@ fun LabelPickerDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    LazyColumn(
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(labels) { label ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp) // Pośrednia wysokość
-                                    .padding(4.dp)
-                                    .clickable { onLabelSelected(label) } // Ustaw etykietę jako aktualną
-                                    .background(Color(label.color), RoundedCornerShape(8.dp)),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    label.name,
-                                    color = Color.Black,
-                                    fontSize = 14.sp, // Większa czcionka
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
-                                IconButton(
-                                    onClick = { labels.remove(label); viewModel.removeLabel(label) },
-                                    modifier = Modifier.size(32.dp) // Większa ikona
+                    BoxWithConstraints {
+                        val maxHeight = maxHeight * 0.6f // Maksymalnie 50% wysokości ekranu
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = maxHeight),
+                            contentPadding = PaddingValues(vertical = 2.dp)
+                        ) {
+                            items(labels) { label ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(4.dp)
+                                        .clickable { onLabelSelected(label) }
+                                        .background(Color(label.color), RoundedCornerShape(8.dp)),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.delete),
-                                        contentDescription = "Usuń etykietę",
-                                        tint = Color.Red
+                                    Text(
+                                        text = label.name,
+                                        color = Color.Black,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(start = 8.dp)
                                     )
+                                    IconButton(
+                                        onClick = { labels.remove(label); viewModel.removeLabel(label) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.delete),
+                                            contentDescription = "Usuń etykietę",
+                                            tint = Color.Red
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Button(
                         onClick = { isCreatingLabel = true },
@@ -2112,6 +2134,4 @@ fun LabelPickerDialog(
         }
     }
 }
-
-
 

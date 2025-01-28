@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.todoapp2
 
 import android.content.Context
@@ -242,6 +244,7 @@ object TodoManager {
         todo?.let {
             it.isCompleted
             it.isCompleted = !it.isCompleted
+            it.completedAt = if (it.isCompleted) Date() else null // Zapisz datę wykonania lub usuń ją
             saveTodos()
 
             if (it.isCompleted) {
@@ -411,5 +414,58 @@ object TodoManager {
         val json = gson.toJson(project)
         preferences.edit().putString("project_${project.id}", json).apply()
     }
+
+    //STATYSTYKI UŻYTKOWNIKA
+
+    fun getStatsForYear(year: Int): Map<String, Int> {
+        val todosForYear = todoList.filter {
+            it.createdAt.year == year - 1900 // Dopasowanie roku dodania
+        }
+        val completedTodosForYear = todoList.filter {
+            it.completedAt?.year == year - 1900 // Dopasowanie roku wykonania
+        }
+
+        return mapOf(
+            "tasksAdded" to todosForYear.count { !it.isProject },
+            "tasksCompleted" to completedTodosForYear.count { !it.isProject },
+            "projectsAdded" to todosForYear.count { it.isProject },
+            "projectsCompleted" to completedTodosForYear.count { it.isProject }
+        )
+    }
+
+    fun getStatsForMonth(year: Int, month: Int): Map<String, Int> {
+        val todosForMonth = todoList.filter {
+            it.createdAt.year == year - 1900 && it.createdAt.month == month - 1 // Dopasowanie roku i miesiąca dodania
+        }
+        val completedTodosForMonth = todoList.filter {
+            it.completedAt?.year == year - 1900 && it.completedAt?.month == month - 1 // Dopasowanie roku i miesiąca wykonania
+        }
+
+        return mapOf(
+            "tasksAdded" to todosForMonth.count { !it.isProject },
+            "tasksCompleted" to completedTodosForMonth.count { !it.isProject },
+            "projectsAdded" to todosForMonth.count { it.isProject },
+            "projectsCompleted" to completedTodosForMonth.count { it.isProject }
+        )
+    }
+
+
+    fun getStatsForCustomRange(start: Date, end: Date): Map<String, Int> {
+        val todosInRange = todoList.filter {
+            it.createdAt.time >= start.time && it.createdAt.time <= end.time
+        }
+        val completedTodosInRange = todoList.filter {
+            it.completedAt != null && it.completedAt!!.time >= start.time && it.completedAt!!.time <= end.time
+        }
+
+        return mapOf(
+            "tasksAdded" to todosInRange.count { !it.isProject },
+            "tasksCompleted" to completedTodosInRange.count { !it.isProject },
+            "projectsAdded" to todosInRange.count { it.isProject },
+            "projectsCompleted" to completedTodosInRange.count { it.isProject }
+        )
+    }
+
+
 
 }
