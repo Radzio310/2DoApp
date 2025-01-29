@@ -11,9 +11,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,127 +62,115 @@ import java.util.Locale
 @Composable
 fun CalendarScreen(
     isVisible: Boolean,
-    onClose: () -> Unit // Funkcja zamykająca ekran
+    onClose: () -> Unit
 ) {
-    var offsetY by remember { mutableFloatStateOf(0f) } // Przechowywanie przesunięcia w pionie
-    var initialDragY by remember { mutableStateOf<Float?>(null) } // Pozycja początkowa palca
-    var viewType by remember { mutableStateOf(CalendarViewType.Day) } // Typ widoku kalendarza
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    var initialDragY by remember { mutableStateOf<Float?>(null) }
+    var viewType by remember { mutableStateOf(CalendarViewType.Day) }
     val currentDate = remember { mutableStateOf(Calendar.getInstance().time) }
     val context = LocalContext.current
     var isCalendarVisible by remember { mutableStateOf(isVisible) }
+    var oneSlide = 0;
 
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-        exit = slideOutVertically(
-            targetOffsetY = { it },
-            animationSpec = tween(durationMillis = 600) // Spowolnienie zamykania
-        ) + fadeOut(animationSpec = tween(durationMillis = 600))
+        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(600)) + fadeOut(animationSpec = tween(600))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF121212)) // Tło ekranu kalendarza
+                .background(Color(0xFF121212))
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
-                        onDragStart = { offset ->
-                            initialDragY = offset.y // Zapamiętaj pozycję początkową palca
-                        },
+                        onDragStart = { initialDragY = it.y },
                         onDragEnd = {
-                            if (initialDragY != null && offsetY > 300) { // Jeśli przesunięcie w dół wystarczające
-                                onClose() // Zamknij ekran
+                            if (initialDragY != null && offsetY > 300) {
+                                onClose()
                             } else {
-                                offsetY = 0f // Wróć do pozycji początkowej
+                                offsetY = 0f
                             }
-                            initialDragY = null // Zresetuj wartość
+                            initialDragY = null
                         },
                         onVerticalDrag = { _, dragAmount ->
-                            if (dragAmount > 0) { // Obsługa przesunięcia tylko w dół
+                            if (dragAmount > 0) {
                                 offsetY = (offsetY + dragAmount).coerceAtLeast(0f)
                             }
                         }
                     )
                 }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {oneSlide = 0},
+                        onHorizontalDrag = { _, dragAmount ->
+                            // Obsługujemy przesunięcie palcem, maksymalnie o 1 dzień/tydzień/miesiąc
+                            if (dragAmount > 50 && oneSlide == 0) {
+                                navigateToPrevious(viewType, currentDate)
+                                oneSlide += 1
+                            } else if (dragAmount < -50 && oneSlide == 0) {
+                                navigateToNext(viewType, currentDate)
+                                oneSlide += 1
+                            }
+                        },
+                        onDragEnd = {
+                            // Nic nie musimy robić na zakończenie gestu, przesunięcie obsłużono w onHorizontalDrag
+                        }
+                    )
+                }
+
+
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                // Header z logo, tytułem i ikoną Google Calendar
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Logo w lewym górnym rogu
                     Icon(
                         painter = painterResource(id = R.drawable.logo),
                         contentDescription = "Logo aplikacji",
                         modifier = Modifier.size(48.dp),
                         tint = Color.Unspecified
                     )
-
-                    // Tytuł wyśrodkowany
                     Text(
                         text = "2 DO - Kalendarz",
                         fontSize = 18.sp,
                         color = Color(0xFFc38e70),
                         textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .weight(1f) // Wyśrodkowanie tekstu między logo a ikoną
+                        modifier = Modifier.weight(1f)
                     )
-
-                    // Ikona Google Calendar w prawym górnym rogu
                     IconButton(
-                        onClick = {Toast.makeText(context, "Integracja z Kalendarzem Google możliwa już niedługo", Toast.LENGTH_SHORT).show()}
+                        onClick = { Toast.makeText(context, "Integracja z Kalendarzem Google możliwa już niedługo", Toast.LENGTH_SHORT).show() }
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_google_calendar),
                             contentDescription = "Google Calendar",
-                            modifier = Modifier.size(32.dp), // Zmniejszenie ikony
+                            modifier = Modifier.size(32.dp),
                             tint = Color.Unspecified
                         )
                     }
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Typ widoku (Day, Week, Month)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     CalendarViewType.values().forEach { type ->
                         Button(
                             onClick = { viewType = type },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (viewType == type) Color(0xFF52b788) else Color.Transparent
-                            ),
-                            modifier = Modifier.padding(0.dp) // Zmniejszenie paddingu horyzontalnego
+                            colors = ButtonDefaults.buttonColors(containerColor = if (viewType == type) Color(0xFF52b788) else Color.Transparent)
                         ) {
-                            Text(
-                                text = type.displayName,
-                                color = Color.White,
-                                fontSize = 12.sp // Zmniejszenie czcionki, jeśli potrzeba
-                            )
+                            Text(text = type.displayName, color = Color.White, fontSize = 12.sp)
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Pasek nawigacji dat
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = { navigateToPrevious(viewType, currentDate) }) {
                         Icon(
@@ -189,11 +179,7 @@ fun CalendarScreen(
                             tint = Color.White
                         )
                     }
-                    Text(
-                        text = getDateRange(viewType, currentDate.value),
-                        fontSize = 16.sp,
-                        color = Color.White
-                    )
+                    Text(text = getDateRange(viewType, currentDate.value), fontSize = 16.sp, color = Color(0xFFe6ccb2))
                     IconButton(onClick = { navigateToNext(viewType, currentDate) }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_next),
@@ -202,34 +188,15 @@ fun CalendarScreen(
                         )
                     }
                 }
-
-                // Wyświetlanie treści kalendarza w zależności od wybranego widoku
                 when (viewType) {
-                    CalendarViewType.Day -> DayView(
-                        TodoViewModel(),
-                        date = currentDate.value,
-                        onRefreshCalendar = {
-                            isCalendarVisible = false // Zamknij modal
-                            isCalendarVisible = true  // Otwórz modal ponownie
-                        })
-                    CalendarViewType.Week -> WeekView(TodoViewModel(), date = currentDate.value) { selectedDate ->
-                        viewType = CalendarViewType.Day
-                        currentDate.value = selectedDate
-                    }
-                    CalendarViewType.Month -> MonthView(TodoViewModel(), date = currentDate.value) { selectedDate ->
-                        viewType = CalendarViewType.Day
-                        currentDate.value = selectedDate
-                    }
+                    CalendarViewType.Day -> DayView(TodoViewModel(), date = currentDate.value) { isCalendarVisible = false; isCalendarVisible = true }
+                    CalendarViewType.Week -> WeekView(TodoViewModel(), date = currentDate.value) { selectedDate -> viewType = CalendarViewType.Day; currentDate.value = selectedDate }
+                    CalendarViewType.Month -> MonthView(TodoViewModel(), date = currentDate.value) { selectedDate -> viewType = CalendarViewType.Day; currentDate.value = selectedDate }
                 }
             }
-
-            // Przycisk zamknięcia w prawym dolnym rogu
             IconButton(
                 onClick = onClose,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
-                    .size(64.dp)
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).size(64.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_hide),
@@ -238,9 +205,34 @@ fun CalendarScreen(
                     modifier = Modifier.size(48.dp)
                 )
             }
+            Button(
+                onClick = {
+                    currentDate.value = Calendar.getInstance().time
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                border = BorderStroke(2.dp, Color(0xFFc38e70)), // Brązowa ramka
+                shape = RoundedCornerShape(16.dp), // Zaokrąglone rogi
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Wróć do dzisiaj",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(end = 8.dp) // Odsunięcie tekstu od ikony
+                )
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_today),
+                    contentDescription = "Przejdź do dzisiaj",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
+
 
 
 
