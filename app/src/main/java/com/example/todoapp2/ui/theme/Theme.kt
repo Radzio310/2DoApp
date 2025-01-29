@@ -57,7 +57,13 @@ fun ToDoApp2Theme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = darkColorScheme(
+            background = Color(0xFF1C1C1E),
+            surface = Color(0xFF02040f),
+            onBackground = Color.White,
+            primary = Color(0xFFb08968),
+            onSurface = Color.White
+        ),
         typography = Typography,
         content = content
     )

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.todoapp2.CalendarScreen
 import com.example.todoapp2.Label
 import com.example.todoapp2.NotificationScheduler
 import com.example.todoapp2.R
@@ -71,29 +72,91 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
     var isUserScreenVisible by remember { mutableStateOf(false) }
 
+    var isCalendarVisible by remember { mutableStateOf(false) }
 
 
-
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .padding(8.dp)
-    ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.Start
+                .fillMaxHeight()
+                .padding(8.dp)
         ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                placeholder = { Text("Dodaj zadanie...") },
+            Row(
                 modifier = Modifier
-                    .weight(0.9f)
-                    .padding(end = 8.dp),
-                keyboardActions = KeyboardActions(
-                    onDone = {
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    placeholder = { Text("Dodaj zadanie...") },
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .padding(end = 8.dp),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (inputText.isNotEmpty()) {
+                                if (hasDeadline) {
+                                    DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            calendar.set(Calendar.YEAR, year)
+                                            calendar.set(Calendar.MONTH, month)
+                                            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                            TimePickerDialog(
+                                                context,
+                                                { _, hour, minute ->
+                                                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                                                    calendar.set(Calendar.MINUTE, minute)
+                                                    selectedDeadline = calendar.time
+
+                                                    // Sprawdzenie, czy deadline jest w przeszłości
+                                                    if (selectedDeadline!!.before(Date())) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Wybrany czas już minął!",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
+
+                                                    viewModel.addTodo(
+                                                        context,
+                                                        inputText,
+                                                        selectedDeadline,
+                                                        isProject
+                                                    )
+                                                    inputText = ""
+                                                    selectedDeadline = null
+                                                    isProject = false
+                                                },
+                                                calendar.get(Calendar.HOUR_OF_DAY),
+                                                calendar.get(Calendar.MINUTE),
+                                                true
+                                            ).show()
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    ).show()
+                                } else {
+                                    viewModel.addTodo(context, inputText, null, isProject)
+                                    inputText = ""
+                                    isProject = false
+                                }
+                            } else {
+                                Toast.makeText(context, "Wpisz treść zadania", Toast.LENGTH_SHORT)
+                                    .show()
+                            }
+                        }
+                    ),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        imeAction = ImeAction.Done // Ustawienie akcji "Done" (Enter)
+                    )
+                )
+
+
+                IconButton(
+                    onClick = {
                         if (inputText.isNotEmpty()) {
                             if (hasDeadline) {
                                 DatePickerDialog(
@@ -111,10 +174,19 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
                                                 // Sprawdzenie, czy deadline jest w przeszłości
                                                 if (selectedDeadline!!.before(Date())) {
-                                                    Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Wybrany czas już minął!",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                 }
 
-                                                viewModel.addTodo(context, inputText, selectedDeadline, isProject)
+                                                viewModel.addTodo(
+                                                    context,
+                                                    inputText,
+                                                    selectedDeadline,
+                                                    isProject
+                                                )
                                                 inputText = ""
                                                 selectedDeadline = null
                                                 isProject = false
@@ -134,209 +206,165 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                 isProject = false
                             }
                         } else {
-                            Toast.makeText(context, "Wpisz treść zadania", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Wpisz treść zadania", Toast.LENGTH_SHORT)
+                                .show()
                         }
-                    }
-                ),
-                keyboardOptions = KeyboardOptions.Default.copy(
-                    imeAction = ImeAction.Done // Ustawienie akcji "Done" (Enter)
-                )
-            )
-
-
-            IconButton(
-                onClick = {
-                    if (inputText.isNotEmpty()) {
-                        if (hasDeadline) {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    calendar.set(Calendar.YEAR, year)
-                                    calendar.set(Calendar.MONTH, month)
-                                    calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                                    TimePickerDialog(
-                                        context,
-                                        { _, hour, minute ->
-                                            calendar.set(Calendar.HOUR_OF_DAY, hour)
-                                            calendar.set(Calendar.MINUTE, minute)
-                                            selectedDeadline = calendar.time
-
-                                            // Sprawdzenie, czy deadline jest w przeszłości
-                                            if (selectedDeadline!!.before(Date())) {
-                                                Toast.makeText(context, "Wybrany czas już minął!", Toast.LENGTH_SHORT).show()
-                                            }
-
-                                            viewModel.addTodo(context, inputText, selectedDeadline, isProject)
-                                            inputText = ""
-                                            selectedDeadline = null
-                                            isProject = false
-                                        },
-                                        calendar.get(Calendar.HOUR_OF_DAY),
-                                        calendar.get(Calendar.MINUTE),
-                                        true
-                                    ).show()
-                                },
-                                calendar.get(Calendar.YEAR),
-                                calendar.get(Calendar.MONTH),
-                                calendar.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        } else {
-                            viewModel.addTodo(context, inputText, null, isProject)
-                            inputText = ""
-                            isProject = false
-                        }
-                    } else {
-                        Toast.makeText(context, "Wpisz treść zadania", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                modifier = Modifier
-                    .weight(0.1f)
-                    .align(Alignment.CenterVertically)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_add_task),
-                    contentDescription = "Add Task",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Deadline", fontSize = 12.sp)
-                Checkbox(
-                    checked = hasDeadline,
-                    onCheckedChange = { hasDeadline = it },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFFb08968),
-                        uncheckedColor = Color.Gray
+                    },
+                    modifier = Modifier
+                        .weight(0.1f)
+                        .align(Alignment.CenterVertically)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_add_task),
+                        contentDescription = "Add Task",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
                     )
-                )
+                }
             }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Deadline", fontSize = 12.sp)
+                    Checkbox(
+                        checked = hasDeadline,
+                        onCheckedChange = { hasDeadline = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFFb08968),
+                            uncheckedColor = Color.Gray
+                        )
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Ikona dla zadania
+                    IconButton(
+                        onClick = { isProject = false }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_task),
+                            contentDescription = "Zadanie",
+                            tint = if (!isProject) Color(0xFFb08968) else Color.Gray
+                        )
+                    }
+
+                    // Ikona zmieniająca się zależnie od wybranego trybu
+                    Icon(
+                        painter = painterResource(id = if (!isProject) R.drawable.ic_switch_project else R.drawable.ic_switch_task),
+                        contentDescription = if (isProject) "Projekt" else "Zadanie",
+                        tint = Color(0xFFddb892),
+                        modifier = Modifier
+                            .size(32.dp) // Rozmiar ikony między przełącznikami
+                    )
+
+                    // Ikona dla projektu
+                    IconButton(
+                        onClick = { isProject = true }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_project),
+                            contentDescription = "Projekt",
+                            tint = if (isProject) Color(0xFFD5BDAD) else Color.Gray
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Pole tekstowe ze stałą szerokością
+                    Text(
+                        text = if (isProject) "Projekt" else "Zadanie",
+                        fontSize = 16.sp,
+                        color = Color.White,
+                        modifier = Modifier
+                            .width(150.dp) // Stała szerokość dla estetyki
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp))
+                            .padding(4.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Dodanie linii oddzielającej
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.Center
             ) {
-                // Ikona dla zadania
-                IconButton(
-                    onClick = { isProject = false }
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_task),
-                        contentDescription = "Zadanie",
-                        tint = if (!isProject) Color(0xFFb08968) else Color.Gray
-                    )
-                }
-
-                // Ikona zmieniająca się zależnie od wybranego trybu
-                Icon(
-                    painter = painterResource(id = if (!isProject) R.drawable.ic_switch_project else R.drawable.ic_switch_task),
-                    contentDescription = if (isProject) "Projekt" else "Zadanie",
-                    tint = Color(0xFFddb892),
+                HorizontalDivider(
                     modifier = Modifier
-                        .padding(horizontal = 2.dp)
-                        .size(32.dp) // Rozmiar ikony między przełącznikami
-                )
-
-                // Ikona dla projektu
-                IconButton(
-                    onClick = { isProject = true }
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_project),
-                        contentDescription = "Projekt",
-                        tint = if (isProject) Color(0xFFD5BDAD) else Color.Gray
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Pole tekstowe ze stałą szerokością
-                Text(
-                    text = if (isProject) "Projekt" else "Zadanie",
-                    fontSize = 16.sp,
-                    color = Color.White,
-                    modifier = Modifier
-                        .width(125.dp) // Stała szerokość dla estetyki
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp)),
-                    textAlign = TextAlign.Center
+                        .height(2.dp),
+                    color = Color.Gray
                 )
             }
-        }
 
-        // Dodanie linii oddzielającej
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            HorizontalDivider(
-                modifier = Modifier
-                    .height(2.dp),
-                color = Color.Gray
-            )
-        }
+            // Lista zadań
+            todoList?.let {
 
-        // Lista zadań
-        todoList?.let {
+                // Filtrujemy listę w oparciu o checkboxy
+                val filteredList = todoList?.filter { todo ->
+                    val isTaskVisible = showTasks && !todo.isProject
+                    val isProjectVisible = showProjects && todo.isProject
+                    val isLabelVisible = todo.label?.isLabelVisible
+                        ?: showWithoutLabel // Uwzględnij widoczność etykiety
 
-            // Filtrujemy listę w oparciu o checkboxy
-            val filteredList = todoList?.filter { todo ->
-                val isTaskVisible = showTasks && !todo.isProject
-                val isProjectVisible = showProjects && todo.isProject
-                val isLabelVisible = todo.label?.isLabelVisible ?: showWithoutLabel // Uwzględnij widoczność etykiety
-
-                isLabelVisible && (isTaskVisible || isProjectVisible)
-            }
+                    isLabelVisible && (isTaskVisible || isProjectVisible)
+                }
 
 
 
 
-            LazyColumn(
-                content = {
-                    itemsIndexed(filteredList ?: emptyList()) { _, item ->
-                        AnimatedVisibility(
-                            visible = true, // Elementy zawsze widoczne na liście
-                            enter = slideInVertically(initialOffsetY = { it }),
-                            exit = slideOutVertically(targetOffsetY = { it })
-                        ) {
-                            TodoItem(
-                                item = item,
-                                onClick = {
-                                    if (item.isProject) showModal = item else selectedTask = item
-                                },
-                                onDelete = { todoToDelete = item },
-                                onMarkComplete = { viewModel.markAsCompleted(context, item.id) },
-                                onMoveUp = { id -> viewModel.moveItemUp(id) },
-                                onMoveDown = { id -> viewModel.moveItemDown(id) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                            )
+                LazyColumn(
+                    content = {
+                        itemsIndexed(filteredList ?: emptyList()) { _, item ->
+                            AnimatedVisibility(
+                                visible = true, // Elementy zawsze widoczne na liście
+                                enter = slideInVertically(initialOffsetY = { it }),
+                                exit = slideOutVertically(targetOffsetY = { it })
+                            ) {
+                                TodoItem(
+                                    item = item,
+                                    onClick = {
+                                        if (item.isProject) showModal = item else selectedTask =
+                                            item
+                                    },
+                                    onDelete = { todoToDelete = item },
+                                    onMarkComplete = {
+                                        viewModel.markAsCompleted(
+                                            context,
+                                            item.id
+                                        )
+                                    },
+                                    onMoveUp = { id -> viewModel.moveItemUp(id) },
+                                    onMoveDown = { id -> viewModel.moveItemDown(id) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                )
+                            }
                         }
-                    }
-                },
-                modifier = Modifier.padding(bottom = 40.dp)
-            )
+                    },
+                    modifier = Modifier.padding(bottom = 40.dp)
+                )
 
-        } ?: Text(
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            text = "Brak zadań - dodaj pierwsze",
-            fontSize = 16.sp
-        )
-    }
+            } ?: Text(
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                text = "Brak zadań - dodaj pierwsze",
+                fontSize = 16.sp
+            )
+        }
 
 
     Column(
@@ -357,7 +385,8 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
             onTasksToggle = { showTasks = !showTasks },
             onProjectsToggle = { showProjects = !showProjects },
             onShowWithoutLabelToggle = { showWithoutLabel = !showWithoutLabel },
-            onUserScreenToggle = { isUserScreenVisible = true }
+            onUserScreenToggle = { isUserScreenVisible = true },
+            onCalendarToggle = { isCalendarVisible = true }
         )
 
     }
@@ -409,7 +438,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
 
     UserScreen(
         isVisible = isUserScreenVisible,
-        onClose = { isUserScreenVisible = false } // Zamyka ekran po naciśnięciu strzałki
+        onClose = { isUserScreenVisible = false } // Zamknięcie UserScreen
+    )
+
+    CalendarScreen(
+        isVisible = isCalendarVisible,
+        onClose = { isCalendarVisible = false } // Zamknięcie CalendarScreen
     )
 
 
@@ -425,7 +459,8 @@ fun CustomBottomBar(
     onTasksToggle: () -> Unit,
     onProjectsToggle: () -> Unit,
     onShowWithoutLabelToggle: () -> Unit,
-    onUserScreenToggle: () -> Unit
+    onUserScreenToggle: () -> Unit,
+    onCalendarToggle: () -> Unit
 ) {
     var showEditViewModal by remember { mutableStateOf(false) }
 
@@ -440,7 +475,7 @@ fun CustomBottomBar(
     ) {
         // Ikona kalendarza po lewej
         IconButton(
-            onClick = { },
+            onClick = { onCalendarToggle() }, // Wywołanie przekazanej funkcji
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp))
@@ -453,6 +488,7 @@ fun CustomBottomBar(
                 modifier = Modifier.size(24.dp)
             )
         }
+
 
         // Przycisk "Wyświetl" z ikoną
         Button(
@@ -2160,4 +2196,3 @@ fun LabelPickerDialog(
         }
     }
 }
-

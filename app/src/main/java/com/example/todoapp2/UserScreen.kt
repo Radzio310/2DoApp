@@ -160,12 +160,15 @@ fun UserScreen(
 
 @Composable
 fun UserOptionItem(option: UserScreenOption, onClick: () -> Unit) {
+    val isUnderConstruction = option !is UserScreenOption.Statistics
+    val backgroundColor = if (!isUnderConstruction) Color(0xFF2C2C2E) else Color(0xFF1C1C1E)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .clickable { onClick() }
-            .background(Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
+            .clickable(enabled = !isUnderConstruction) { onClick() }
+            .background(backgroundColor, RoundedCornerShape(12.dp))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -176,11 +179,20 @@ fun UserOptionItem(option: UserScreenOption, onClick: () -> Unit) {
             tint = Color(0xFFb08968)
         )
         Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = option.label,
-            fontSize = 18.sp,
-            color = Color.White
-        )
+        Column {
+            Text(
+                text = option.label,
+                fontSize = 18.sp,
+                color = Color.White
+            )
+            if (isUnderConstruction) {
+                Text(
+                    text = "W budowie",
+                    fontSize = 12.sp,
+                    color = Color(0xFFD3A28F) // Lekko jaśniejszy kolor dla oznaczenia "w budowie"
+                )
+            }
+        }
     }
 }
 
@@ -263,7 +275,7 @@ fun StatisticsScreen(onClose: () -> Unit) {
                     Text(
                         text = "Statystyki użytkownika",
                         fontSize = 24.sp,
-                        color = Color.White,
+                        color = Color(0xFFc38e70),
                         modifier = Modifier.padding(start = 8.dp),
                         textAlign = TextAlign.Center
                     )

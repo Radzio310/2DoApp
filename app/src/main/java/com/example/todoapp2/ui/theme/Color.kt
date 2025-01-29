@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 val DarkPrimary = Color(0xFFb08968)
 val DarkSecondary = Color(0xFFD5BDAD)
 val DarkTertiary = Color(0xFF52b788)
-val DarkBackground = Color(0xFF090909)
+val DarkBackground = Color(0xFF1f2421)
 val DarkSurface = Color(0xFF1C1C1E)
 
 // Jasny motyw

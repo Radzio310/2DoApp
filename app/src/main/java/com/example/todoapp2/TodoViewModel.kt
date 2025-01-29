@@ -23,9 +23,10 @@ class TodoViewModel : ViewModel() {
     }
 
 
-    private fun getAllTodo() {
+    fun getAllTodo() {
         _todoList.value = TodoManager.getAllTodo().reversed() // Pobierz listę z odpowiednią kolejnością
     }
+
 
     fun addLabel(name: String, color: Int) {
         if (TodoManager.addLabel(name, color)) {

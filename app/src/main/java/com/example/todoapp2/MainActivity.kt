@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
                 // Powierzchnia kontenera korzystająca z tła z motywu aplikacji
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     // Główna strona listy zadań
                     TodoListPage(
