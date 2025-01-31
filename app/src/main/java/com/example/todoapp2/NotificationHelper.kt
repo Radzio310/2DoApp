@@ -8,6 +8,12 @@ import androidx.core.app.NotificationManagerCompat
 
 object NotificationHelper {
     fun sendTaskReminder(context: Context, title: String, message: String, taskId: Int) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                return // Nie wysyłaj powiadomienia, jeśli brak pozwolenia
+            }
+        }
+
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -32,6 +38,12 @@ object NotificationHelper {
     }
 
     fun sendDailySummary(context: Context, taskCount: Int, projectCount: Int) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                return // Nie wysyłaj powiadomienia, jeśli brak pozwolenia
+            }
+        }
+
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }

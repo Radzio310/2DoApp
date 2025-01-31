@@ -2,10 +2,10 @@ package com.example.todoapp2
 
 import android.content.Context
 import androidx.work.*
-import java.text.SimpleDateFormat
+//import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+//import java.util.Date
+//import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class TaskReminderWorker(
@@ -14,11 +14,30 @@ class TaskReminderWorker(
 ) : Worker(context, params) {
     override fun doWork(): Result {
         val title = inputData.getString("title") ?: "Przypomnienie"
-        val deadline = inputData.getString("deadline") ?: ""
+        //val deadline = inputData.getLong("deadline", 0)
         val taskId = inputData.getInt("taskId", 0)
-        NotificationHelper.sendTaskReminder(applicationContext, "\uD83D\uDD14 $title", "Do roboty wariacie!\uD83D\uDE01 ($deadline)", taskId)
+        val offsetMillis = inputData.getLong("offsetMillis", 0)
+
+        val timeLeftText = formatTimeLeft(offsetMillis)
+
+        val message = "Zostało Ci $timeLeftText. Do roboty wariacie! 😁"
+
+        NotificationHelper.sendTaskReminder(applicationContext, "\uD83D\uDD14 $title", message, taskId)
         return Result.success()
     }
+
+    // Funkcja pomocnicza do przekształcenia offsetMillis w czytelną formę
+    private fun formatTimeLeft(offsetMillis: Long): String {
+        return when {
+            offsetMillis >= TimeUnit.DAYS.toMillis(2) -> "${offsetMillis / TimeUnit.DAYS.toMillis(1)} dni"
+            offsetMillis >= TimeUnit.DAYS.toMillis(1) -> "1 dzień"
+            offsetMillis >= TimeUnit.HOURS.toMillis(5) -> "${offsetMillis / TimeUnit.HOURS.toMillis(1)} godzin"
+            offsetMillis >= TimeUnit.HOURS.toMillis(1) -> "${offsetMillis / TimeUnit.HOURS.toMillis(1)} godziny"
+            offsetMillis >= TimeUnit.MINUTES.toMillis(2) -> "${offsetMillis / TimeUnit.MINUTES.toMillis(1)} minut"
+            else -> "1 minutę"
+        }
+    }
+
 }
 
 class DailySummaryWorker(
@@ -50,8 +69,9 @@ object NotificationScheduler {
             .setInputData(
                 workDataOf(
                     "title" to title,
-                    "deadline" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(deadline)),
-                    "taskId" to taskId
+                    "deadline" to deadline,
+                    "taskId" to taskId,
+                    "offsetMillis" to offsetMillis // Przekazujemy czas przed deadline
                 )
             )
             .addTag(tag) // Dodanie unikalnego tagu

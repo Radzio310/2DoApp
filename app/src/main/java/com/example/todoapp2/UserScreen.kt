@@ -224,7 +224,7 @@ fun StatisticsScreen(onClose: () -> Unit) {
     val currentMonth = Calendar.getInstance().get(Calendar.MONTH) + 1
 
     var selectedYear by remember { mutableIntStateOf(currentYear) }
-    var selectedMonth by remember { mutableStateOf(currentMonth) }
+    var selectedMonth by remember { mutableIntStateOf(currentMonth) }
     var customRange by remember { mutableStateOf<Pair<Date, Date>?>(null) }
 
     val statsForSelected = remember(selectedYear, selectedMonth) {

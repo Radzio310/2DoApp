@@ -54,6 +54,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx) // Obsługa Lifecycle
     implementation(libs.androidx.activity.compose) // Obsługa Activity Compose
 
+//    val roomVersion = "2.5.0"
+//    implementation("androidx.room:room-runtime:$roomVersion")
+//    kapt("androidx.room:room-compiler:$roomVersion")
+//    implementation("androidx.room:room-ktx:$roomVersion")
+
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui) // Podstawowe UI Compose

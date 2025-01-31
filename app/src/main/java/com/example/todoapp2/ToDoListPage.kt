@@ -1,3 +1,6 @@
+package com.example.todoapp2
+
+import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -6,6 +9,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,19 +39,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.todoapp2.CalendarScreen
-import com.example.todoapp2.Label
-import com.example.todoapp2.NotificationScheduler
-import com.example.todoapp2.R
-import com.example.todoapp2.Todo
-import com.example.todoapp2.TodoManager
+import com.example.todoapp2.TodoManager.addTodo
+import com.example.todoapp2.TodoManager.createNewTodo
 import com.example.todoapp2.TodoManager.generateUniqueId
 import com.example.todoapp2.TodoManager.removeTodoDeadline
 import com.example.todoapp2.TodoManager.saveProjectState
 import com.example.todoapp2.TodoManager.updateLabelVisibility
 import com.example.todoapp2.TodoManager.updateTodoDeadline
-import com.example.todoapp2.TodoViewModel
-import com.example.todoapp2.UserScreen
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -73,6 +71,9 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
     var isUserScreenVisible by remember { mutableStateOf(false) }
 
     var isCalendarVisible by remember { mutableStateOf(false) }
+
+    // Liczba widocznych ukończonych zadań
+    var loadedCompletedTasks by remember { mutableIntStateOf(10) }
 
 
         Column(
@@ -322,12 +323,12 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                     isLabelVisible && (isTaskVisible || isProjectVisible)
                 }
 
-
+                val (completedTasks, activeTasks) = filteredList!!.partition { it.isCompleted }
 
 
                 LazyColumn(
                     content = {
-                        itemsIndexed(filteredList ?: emptyList()) { _, item ->
+                        itemsIndexed(activeTasks) { _, item ->
                             AnimatedVisibility(
                                 visible = true, // Elementy zawsze widoczne na liście
                                 enter = slideInVertically(initialOffsetY = { it }),
@@ -352,6 +353,36 @@ fun TodoListPage(viewModel: TodoViewModel, context: Context) {
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
                                 )
+                            }
+                        }
+                        // UKOŃCZONE ZADANIA (POKAZUJEMY MAKS 10, MOŻNA ZAŁADOWAĆ WIĘCEJ)
+                        items(completedTasks.take(loadedCompletedTasks)) { item ->
+                            TodoItem(
+                                item = item,
+                                onClick = { if (item.isProject) showModal = item else selectedTask = item },
+                                onDelete = { todoToDelete = item },
+                                onMarkComplete = { viewModel.markAsCompleted(context, item.id) },
+                                onMoveUp = { id -> viewModel.moveItemUp(id) },
+                                onMoveDown = { id -> viewModel.moveItemDown(id) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
+
+                        // PRZYCISK "ZAŁADUJ WIĘCEJ", JEŚLI JEST WIĘCEJ UKOŃCZONYCH ZADAŃ DO ZAŁADOWANIA
+                        if (completedTasks.size > loadedCompletedTasks) {
+                            item {
+                                Button(
+                                    onClick = { loadedCompletedTasks += 10 },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                    border = BorderStroke(2.dp, Color(0xFFb08968)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                ) {
+                                    Text("Załaduj więcej", color = Color.White)
+                                }
                             }
                         }
                     },
@@ -1022,9 +1053,12 @@ fun TaskDetailDialog(
     var areNotificationsDisabled by remember { mutableStateOf(task.areNotificationsDisabled) }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
-    val oldDeadline = deadline
+    //val oldDeadline = deadline
     var showAddNotificationDialog by remember { mutableStateOf(false) }
     var showLabelPicker by remember { mutableStateOf(false) }
+
+    var showSpecialDialog by remember { mutableStateOf(false) }
+    var showConfirmChangeDialog by remember { mutableStateOf(false) }
 
 
     Dialog(onDismissRequest = {
@@ -1055,16 +1089,41 @@ fun TaskDetailDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.logo), // Logo aplikacji
-                        contentDescription = "Logo",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { showSpecialDialog = true }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    if (showSpecialDialog) {
+                        SpecialOptionsDialog(
+                            isProject = false,
+                            onClose = { showSpecialDialog = false },
+                            onConfirmChange = { showConfirmChangeDialog = true }
+                        )
+                    }
+
+                    if (showConfirmChangeDialog) {
+                        ConfirmChangeDialog(
+                            isProject = false,
+                            onConfirm = {
+                                val newProject = createNewTodo(task)
+                                addTodo(context, newProject.title, newProject.deadline, isProject = true)
+                                onClose()
+                            },
+                            todo = task,
+                            onDismiss = { showConfirmChangeDialog = false }
+                        )
+
+                    }
+
+                    //Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Szczegóły zadania",
-                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White),
+                        fontSize = 14.sp
                     )
                     // Ikony powiadomień
                     IconButton(
@@ -1164,7 +1223,9 @@ fun TaskDetailDialog(
                 ) {
                     if (deadline != null) {
                         Text(
-                            text = "Deadline:\n$${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            text = "Deadline:\n$${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
+                                deadline!!
+                            )}",
                             fontSize = 14.sp,
                             color = Color(0xFFf4f0bb), // Dopasowany kolor
                             modifier = Modifier.weight(1f)
@@ -1293,6 +1354,7 @@ fun TaskDetailDialog(
 }
 
 
+@SuppressLint("MutableCollectionMutableState")
 @Composable
 fun AddNotificationDialog(
     onDismiss: () -> Unit,
@@ -1300,7 +1362,7 @@ fun AddNotificationDialog(
     oldNotifications: List<Long>,
     onSaveChanges: (List<Long>) -> Unit
 ) {
-    var amount by remember { mutableStateOf(1) }
+    var amount by remember { mutableIntStateOf(1) }
     var unit by remember { mutableStateOf("minut") }
     var isDropdownExpanded by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf(initialNotifications.toMutableList()) }
@@ -1506,6 +1568,144 @@ fun AddNotificationDialog(
 }
 
 
+@Composable
+fun SpecialOptionsDialog(
+    isProject: Boolean,
+    onClose: () -> Unit,
+    onConfirmChange: () -> Unit
+) {
+    Dialog(onDismissRequest = { onClose() }) {
+        Surface(
+            modifier = Modifier
+                .padding(16.dp)
+                .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Opcje specjalne", fontSize = 18.sp, color = Color.White)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Opcja zmiany zadania na projekt i odwrotnie
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onConfirmChange() }
+                        .padding(12.dp)
+                        .border(1.dp, Color(0xFFb08968), RoundedCornerShape(8.dp)),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = if (isProject) "Konwertuj na zadanie" else "Konwertuj na projekt",
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Opcja ustawienia zadania jako cykliczne (na razie zablokowana)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                        .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)), // Szary border dla nieaktywnej opcji
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Ustaw jako cykliczne",
+                            fontSize = 16.sp,
+                            color = Color.Gray // Tekst szary, żeby pokazać, że opcja jest wyłączona
+                        )
+                        Spacer(modifier = Modifier.height(2.dp)) // Dodaje odstęp między tekstami
+                        Text(
+                            text = "(W budowie)",
+                            fontSize = 12.sp,
+                            color = Color(0xFF9c6644)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onClose,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788))
+                ) {
+                    Text("Zamknij", color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConfirmChangeDialog(
+    isProject: Boolean,
+    todo: Todo,
+    onConfirm: (Todo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = { onDismiss() }) {
+        Surface(
+            modifier = Modifier
+                .padding(16.dp)
+                .border(2.dp, Color(0xFFb08968), RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp,
+            color = Color(0xFF090909)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Czy na pewno chcesz przekonwertować na ${if (isProject) "zadanie" else "projekt"}?",
+                    fontSize = 16.sp,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            val newTodo = createNewTodo(todo) // Tworzymy nowy obiekt
+                            onConfirm(newTodo)
+                            if(!todo.isProject) {
+                                Toast.makeText(context, "Utworzono kopię jako projekt", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Utworzono kopię jako zadanie", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF52b788))
+                    ) {
+                        Text("Konwertuj", color = Color.White)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFe5383b))
+                    ) {
+                        Text("Nie konwertuj", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 
 @Composable
@@ -1530,6 +1730,9 @@ fun ProjectDetailDialog(
     var areNotificationsDisabled by remember { mutableStateOf(project.areNotificationsDisabled) }
 
     var showLabelPicker by remember { mutableStateOf(false) }
+
+    var showSpecialDialog by remember { mutableStateOf(false) }
+    var showConfirmChangeDialog by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = {
         project.description = description
@@ -1584,12 +1787,35 @@ fun ProjectDetailDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Logo po lewej stronie
-                    Icon(
-                        painter = painterResource(id = R.drawable.logo_2),
-                        contentDescription = "Logo",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    IconButton(onClick = { showSpecialDialog = true }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    if (showSpecialDialog) {
+                        SpecialOptionsDialog(
+                            isProject = true,
+                            onClose = { showSpecialDialog = false },
+                            onConfirmChange = { showConfirmChangeDialog = true }
+                        )
+                    }
+
+                    if (showConfirmChangeDialog) {
+                        ConfirmChangeDialog(
+                            isProject = true,
+                            onConfirm = {
+                                val newTask = createNewTodo(project)
+                                addTodo(context, newTask.title, newTask.deadline, isProject = false)
+                                onClose()
+                            },
+                            todo = project,
+                            onDismiss = { showConfirmChangeDialog = false }
+                        )
+                    }
 
                     // Ikony powiadomień po prawej stronie, bliżej siebie
                     Row(
@@ -1699,7 +1925,9 @@ fun ProjectDetailDialog(
                 ) {
                     if (deadline != null) {
                         Text(
-                            text = "Deadline:\n${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(deadline)}",
+                            text = "Deadline:\n${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
+                                deadline!!
+                            )}",
                             fontSize = 14.sp,
                             color = Color(0xFFf4f0bb), // Dopasowany kolor
                             modifier = Modifier.weight(1f)

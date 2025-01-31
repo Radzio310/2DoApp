@@ -1,6 +1,5 @@
 package com.example.todoapp2
 
-import TodoListPage
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

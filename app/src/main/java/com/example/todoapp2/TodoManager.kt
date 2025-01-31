@@ -417,21 +417,35 @@ object TodoManager {
 
     //STATYSTYKI UŻYTKOWNIKA
 
-    fun getStatsForYear(year: Int): Map<String, Int> {
-        val todosForYear = todoList.filter {
-            it.createdAt.year == year - 1900 // Dopasowanie roku dodania
-        }
-        val completedTodosForYear = todoList.filter {
-            it.completedAt?.year == year - 1900 // Dopasowanie roku wykonania
-        }
+//    fun getStatsForYear(year: Int): Map<String, Int> {
+//        val todosForYear = todoList.filter {
+//            it.createdAt.year == year - 1900 // Dopasowanie roku dodania
+//        }
+//        val completedTodosForYear = todoList.filter {
+//            it.completedAt?.year == year - 1900 // Dopasowanie roku wykonania
+//        }
+//
+//        return mapOf(
+//            "tasksAdded" to todosForYear.count { !it.isProject },
+//            "tasksCompleted" to completedTodosForYear.count { !it.isProject },
+//            "projectsAdded" to todosForYear.count { it.isProject },
+//            "projectsCompleted" to completedTodosForYear.count { it.isProject }
+//        )
+//    }
 
-        return mapOf(
-            "tasksAdded" to todosForYear.count { !it.isProject },
-            "tasksCompleted" to completedTodosForYear.count { !it.isProject },
-            "projectsAdded" to todosForYear.count { it.isProject },
-            "projectsCompleted" to completedTodosForYear.count { it.isProject }
+    fun createNewTodo(task : Todo): Todo {
+        return Todo(
+            id = generateUniqueId(),
+            title = task.title,
+            description = task.description,
+            deadline = task.deadline,
+            isProject = !task.isProject,  // Odwracamy typ
+            createdAt = Date(),
+            areNotificationsDisabled = task.areNotificationsDisabled,
+            notifications = task.notifications.toMutableList()
         )
     }
+
 
     fun getStatsForMonth(year: Int, month: Int): Map<String, Int> {
         val todosForMonth = todoList.filter {

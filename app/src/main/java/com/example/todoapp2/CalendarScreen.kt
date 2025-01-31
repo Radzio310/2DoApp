@@ -1,9 +1,5 @@
 package com.example.todoapp2
 
-import CustomStyledAlertDialog
-import ProjectDetailDialog
-import TaskDetailDialog
-import TodoItem
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -69,8 +65,8 @@ fun CalendarScreen(
     var viewType by remember { mutableStateOf(CalendarViewType.Day) }
     val currentDate = remember { mutableStateOf(Calendar.getInstance().time) }
     val context = LocalContext.current
-    var isCalendarVisible by remember { mutableStateOf(isVisible) }
-    var oneSlide = 0;
+    val isCalendarVisible = remember { mutableStateOf(isVisible) }
+    var oneSlide = 0
 
     AnimatedVisibility(
         visible = isVisible,
@@ -103,7 +99,7 @@ fun CalendarScreen(
                     detectHorizontalDragGestures(
                         onDragStart = {oneSlide = 0},
                         onHorizontalDrag = { _, dragAmount ->
-                            // Obsługujemy przesunięcie palcem, maksymalnie o 1 dzień/tydzień/miesiąc
+                            // Obsługujemy przesunięcie /8*02palcem, maksymalnie o 1 dzień/tydzień/miesiąc
                             if (dragAmount > 50 && oneSlide == 0) {
                                 navigateToPrevious(viewType, currentDate)
                                 oneSlide += 1
@@ -189,7 +185,7 @@ fun CalendarScreen(
                     }
                 }
                 when (viewType) {
-                    CalendarViewType.Day -> DayView(TodoViewModel(), date = currentDate.value) { isCalendarVisible = false; isCalendarVisible = true }
+                    CalendarViewType.Day -> DayView(TodoViewModel(), date = currentDate.value, isCalendarVisible)
                     CalendarViewType.Week -> WeekView(TodoViewModel(), date = currentDate.value) { selectedDate -> viewType = CalendarViewType.Day; currentDate.value = selectedDate }
                     CalendarViewType.Month -> MonthView(TodoViewModel(), date = currentDate.value) { selectedDate -> viewType = CalendarViewType.Day; currentDate.value = selectedDate }
                 }
@@ -237,7 +233,7 @@ fun CalendarScreen(
 
 
 @Composable
-fun DayView(viewModel: TodoViewModel, date: Date, onRefreshCalendar: () -> Unit) {
+fun DayView(viewModel: TodoViewModel, date: Date, isCalendarVisible: MutableState<Boolean>) {
     // Pobranie zadań na wybrany dzień
     val todos = viewModel.todoList.value?.filter { todo ->
         todo.deadline?.let { deadline -> isSameDay(deadline, date) } == true
@@ -247,49 +243,57 @@ fun DayView(viewModel: TodoViewModel, date: Date, onRefreshCalendar: () -> Unit)
     var showModal by remember { mutableStateOf<Todo?>(null) } // Przechowuje zadanie/projekt do wyświetlenia w modalnym oknie
     var todoToDelete by remember { mutableStateOf<Todo?>(null) } // Przechowuje zadanie/projekt do usunięcia
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        if (todos.isEmpty()) {
-            // Wyświetl komunikat, jeśli brak zadań
-            item {
-                Text(
-                    text = "Brak zadań na ten dzień",
-                    color = Color.Gray,
-                    fontSize = 16.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            // Wyświetlanie listy zadań
-            items(todos) { todo ->
-                TodoItem(
-                    item = todo,
-                    onClick = {
-                        showModal = todo // Otwórz modalne okno szczegółów zadania/projektu
-                    },
-                    onDelete = {
-                        todoToDelete = todo // Otwórz modal potwierdzenia usunięcia
-                        viewModel.getAllTodo()
-                        onRefreshCalendar()
-
-                    },
-                    onMarkComplete = {
-                        viewModel.markAsCompleted(context, todo.id) // Oznacz jako wykonane
-                        viewModel.getAllTodo()
-                        onRefreshCalendar()
-                    },
-                    onMoveDown = {
-                        Toast.makeText(context, "Przesuwanie niemożliwe w widoku kalendarza", Toast.LENGTH_SHORT).show()
-                    },
-                    onMoveUp = {
-                        Toast.makeText(context, "Przesuwanie niemożliwe w widoku kalendarza", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                )
+    Column(modifier = Modifier.fillMaxSize().padding(bottom = 60.dp)) {
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            if (todos.isEmpty()) {
+                // Wyświetl komunikat, jeśli brak zadań
+                item {
+                    Text(
+                        text = "Brak zadań na ten dzień",
+                        color = Color.Gray,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                // Wyświetlanie listy zadań
+                items(todos) { todo ->
+                    TodoItem(
+                        item = todo,
+                        onClick = {
+                            showModal = todo // Otwórz modalne okno szczegółów zadania/projektu
+                        },
+                        onDelete = {
+                            todoToDelete = todo // Otwórz modal potwierdzenia usunięcia
+                        },
+                        onMarkComplete = {
+                            viewModel.markAsCompleted(context, todo.id) // Oznacz jako wykonane
+                            viewModel.getAllTodo()
+                            isCalendarVisible.value = !isCalendarVisible.value
+                            isCalendarVisible.value = !isCalendarVisible.value
+                        },
+                        onMoveDown = {
+                            Toast.makeText(
+                                context,
+                                "Przesuwanie niemożliwe w widoku kalendarza",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onMoveUp = {
+                            Toast.makeText(
+                                context,
+                                "Przesuwanie niemożliwe w widoku kalendarza",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    )
+                }
             }
         }
     }
@@ -327,6 +331,9 @@ fun DayView(viewModel: TodoViewModel, date: Date, onRefreshCalendar: () -> Unit)
             onConfirm = {
                 viewModel.deleteTodo(context, todo.id) // Usuń zadanie/projekt
                 todoToDelete = null // Zamknij dialog
+                viewModel.getAllTodo()
+                isCalendarVisible.value = !isCalendarVisible.value
+                isCalendarVisible.value = !isCalendarVisible.value
             },
             onDismiss = {
                 todoToDelete = null // Zamknij dialog bez usuwania
@@ -343,75 +350,80 @@ fun WeekView(viewModel: TodoViewModel, date: Date, onDaySelected: (Date) -> Unit
     val daysOfWeek = (0..6).map { Date(startOfWeek.time + it * 24 * 60 * 60 * 1000) }
     val currentDay = Calendar.getInstance().time // Pobranie dzisiejszej daty
 
-    Row(modifier = Modifier.fillMaxWidth()) {
-        daysOfWeek.forEach { day ->
-            val todos = viewModel.todoList.value?.filter { todo ->
-                todo.deadline?.let { deadline -> isSameDay(deadline, day) } == true
-            } ?: emptyList()
+    Column(modifier = Modifier.fillMaxSize().padding(bottom = 60.dp)) {
+        Row(modifier = Modifier.weight(1f)) {
+            daysOfWeek.forEach { day ->
+                val todos = viewModel.todoList.value?.filter { todo ->
+                    todo.deadline?.let { deadline -> isSameDay(deadline, day) } == true
+                } ?: emptyList()
 
-            val isToday = isSameDay(day, currentDay)
+                val isToday = isSameDay(day, currentDay)
 
-            Column(
-                modifier = Modifier
-                    .weight(1f) // Każdy dzień ma równą szerokość
-                    .clickable { onDaySelected(day) }
-                    .background(
-                        if (isToday) Color(0xFF52B788) else Color(0xFF1C1C1C), // Zielone tło dla dzisiejszego dnia
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .border(
-                        width = if (isToday) 2.dp else 0.dp,
-                        color = if (isToday) Color.White else Color.Transparent,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 2.dp, vertical = 1.dp), // Minimalny padding
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Wyświetl dzień tygodnia (np. "Pon")
-                Text(
-                    text = SimpleDateFormat("EEE", Locale.getDefault()).format(day),
-                    color = if (isToday) Color.Black else Color.White, // Czarny dla dzisiejszego dnia
-                    fontSize = 12.sp
-                )
-                // Wyświetl numer dnia (np. "12")
-                Text(
-                    text = SimpleDateFormat("dd", Locale.getDefault()).format(day),
-                    color = if (isToday) Color.Black else Color.White,
-                    fontSize = 12.sp
-                )
-
-                todos.take(3).forEach { todo ->
-                    val (labelColor, borderColor) = if (todo.label == null) {
-                        if (todo.isProject) 0x00000000 to 0xFFD5BDAD.toInt() // Projekty bez etykiety
-                        else 0x00000000 to 0xFFb08968.toInt() // Zadania bez etykiety
-                    } else {
-                        todo.label!!.color to todo.label!!.color // Zadania/projekty z etykietą
-                    }
-                    val textColor = getContrastingTextColor(labelColor)
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 1.dp) // Minimalny padding między zadaniami
-                            .background(
-                                color = Color(labelColor),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = Color(borderColor),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 2.dp, vertical = 1.dp) // Minimalny padding wewnętrzny
-                    ) {
-                        Text(
-                            text = todo.title,
-                            color = Color(textColor),
-                            fontSize = 10.sp, // Zmniejszony rozmiar tekstu
-                            maxLines = 3, // Pozwól na maksymalnie 3 linie
-                            softWrap = true, // Włącz zawijanie tekstu
-                            lineHeight = 12.sp
+                Column(
+                    modifier = Modifier
+                        .weight(1f) // Każdy dzień ma równą szerokość
+                        .clickable { onDaySelected(day) }
+                        .background(
+                            if (isToday) Color(0xFF52B788) else Color(0xFF1C1C1C), // Zielone tło dla dzisiejszego dnia
+                            shape = RoundedCornerShape(4.dp)
                         )
+                        .border(
+                            width = if (isToday) 2.dp else 0.dp,
+                            color = if (isToday) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 2.dp, vertical = 1.dp), // Minimalny padding
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Wyświetl dzień tygodnia (np. "Pon")
+                    Text(
+                        text = SimpleDateFormat("EEE", Locale.getDefault()).format(day),
+                        color = if (isToday) Color.Black else Color.White, // Czarny dla dzisiejszego dnia
+                        fontSize = 12.sp
+                    )
+                    // Wyświetl numer dnia (np. "12")
+                    Text(
+                        text = SimpleDateFormat("dd", Locale.getDefault()).format(day),
+                        color = if (isToday) Color.Black else Color.White,
+                        fontSize = 12.sp
+                    )
+
+                    todos.take(7).forEach { todo ->
+                        val (labelColor, borderColor) = if (todo.label == null) {
+                            if (todo.isProject) 0x00000000 to 0xFFD5BDAD.toInt() // Projekty bez etykiety
+                            else 0x00000000 to 0xFFb08968.toInt() // Zadania bez etykiety
+                        } else {
+                            todo.label!!.color to todo.label!!.color // Zadania/projekty z etykietą
+                        }
+                        val textColor = getContrastingTextColor(labelColor)
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 1.dp) // Minimalny padding między zadaniami
+                                .background(
+                                    color = Color(labelColor),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = Color(borderColor),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(
+                                    horizontal = 2.dp,
+                                    vertical = 1.dp
+                                ) // Minimalny padding wewnętrzny
+                        ) {
+                            Text(
+                                text = todo.title,
+                                color = Color(textColor),
+                                fontSize = 10.sp, // Zmniejszony rozmiar tekstu
+                                maxLines = 3, // Pozwól na maksymalnie 3 linie
+                                softWrap = true, // Włącz zawijanie tekstu
+                                lineHeight = 12.sp
+                            )
+                        }
                     }
                 }
             }
@@ -464,78 +476,80 @@ fun MonthView(viewModel: TodoViewModel, date: Date, onDaySelected: (Date) -> Uni
         )
 
         // Siatka dni miesiąca
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(daysGrid) { day ->
-                if (day == null) {
-                    Box(
-                        modifier = Modifier
-                            .padding(1.dp)
-                            .background(Color.Transparent)
-                            .size(40.dp)
-                    )
-                } else {
-                    val todos = viewModel.todoList.value?.filter { todo ->
-                        todo.deadline?.let { deadline -> isSameDay(deadline, day) } == true
-                    } ?: emptyList()
-
-                    val isToday = isSameDay(day, currentDay)
-
-                    Column(
-                        modifier = Modifier
-                            .padding(1.dp)
-                            .clickable { onDaySelected(day) }
-                            .background(
-                                if (isToday) Color(0xFF52B788) else Color(0xFF1C1C1C),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .border(
-                                width = if (isToday) 2.dp else 0.dp,
-                                color = if (isToday) Color.White else Color.Transparent,
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 2.dp, vertical = 1.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = SimpleDateFormat("dd", Locale.getDefault()).format(day),
-                            color = if (isToday) Color.Black else Color.White,
-                            fontSize = 12.sp
+        Column(modifier = Modifier.fillMaxSize().padding(bottom = 60.dp)) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(7),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(daysGrid) { day ->
+                    if (day == null) {
+                        Box(
+                            modifier = Modifier
+                                .padding(1.dp)
+                                .background(Color.Transparent)
+                                .size(40.dp)
                         )
+                    } else {
+                        val todos = viewModel.todoList.value?.filter { todo ->
+                            todo.deadline?.let { deadline -> isSameDay(deadline, day) } == true
+                        } ?: emptyList()
 
-                        todos.take(3).forEach { todo ->
-                            val (labelColor, borderColor) = if (todo.label == null) {
-                                if (todo.isProject) 0x00000000 to 0xFFD5BDAD.toInt()
-                                else 0x00000000 to 0xFFb08968.toInt()
-                            } else {
-                                todo.label!!.color to todo.label!!.color
-                            }
-                            val textColor = getContrastingTextColor(labelColor)
+                        val isToday = isSameDay(day, currentDay)
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 1.dp)
-                                    .background(
-                                        color = Color(labelColor),
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = Color(borderColor),
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 2.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = todo.title,
-                                    color = Color(textColor),
-                                    fontSize = 9.sp,
-                                    maxLines = 1,
-                                    softWrap = true
+                        Column(
+                            modifier = Modifier
+                                .padding(1.dp)
+                                .clickable { onDaySelected(day) }
+                                .background(
+                                    if (isToday) Color(0xFF52B788) else Color(0xFF1C1C1C),
+                                    shape = RoundedCornerShape(4.dp)
                                 )
+                                .border(
+                                    width = if (isToday) 2.dp else 0.dp,
+                                    color = if (isToday) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 2.dp, vertical = 1.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = SimpleDateFormat("dd", Locale.getDefault()).format(day),
+                                color = if (isToday) Color.Black else Color.White,
+                                fontSize = 12.sp
+                            )
+
+                            todos.take(3).forEach { todo ->
+                                val (labelColor, borderColor) = if (todo.label == null) {
+                                    if (todo.isProject) 0x00000000 to 0xFFD5BDAD.toInt()
+                                    else 0x00000000 to 0xFFb08968.toInt()
+                                } else {
+                                    todo.label!!.color to todo.label!!.color
+                                }
+                                val textColor = getContrastingTextColor(labelColor)
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 1.dp)
+                                        .background(
+                                            color = Color(labelColor),
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color(borderColor),
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 2.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = todo.title,
+                                        color = Color(textColor),
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        softWrap = true
+                                    )
+                                }
                             }
                         }
                     }
